@@ -16,9 +16,11 @@ Burada "karar" yazan şeyler kesinleşmiştir; "öneri" yazanlar henüz konuşul
 
 **SafeSight**: Maden sahası girişinde, işçinin **toz maskesini doğru takıp takmadığını** kamerayla kontrol eden bir **kontrol istasyonu** prototipi. Turnike/kapı yok; model karar verir, şüpheli kayıtları **insan inceler** (human-in-the-loop).
 
-- İşçi QR kart ile kendini tanıtır, sonra maskesi taranır.
+- Her işçinin kendine ait bir QR'ı var (bir kişi, bir QR); QR ekipmanın üstünde durur (yeri açık, bkz. §3). İşçi QR ile tanınır, sonra maskesi taranır.
 - Maske doğruysa kayıt `APPROVED` olur. Değilse ekran hemen "maskeni düzelt" der ve deneme hakkı verir; denemeler bitince kayıt `REJECTED` olur, fotoğrafıyla birlikte panele düşer.
-- İş güvenliği sorumlusu panelde reddedilen kayıtları inceler: modelin kararını onaylar ya da düzeltir (model hata yapabilir). Gerekli işlem **sadece insan onayından sonra** yapılır. Raporda "ceza" değil "inceleme ve geri bildirim/eğitim" diye çerçevelenir.
+- İş güvenliği sorumlusu panelde reddedilen kayıtları inceler: modelin kararını onaylar ya da düzeltir (model hata yapabilir).
+- **Kimin geldiği görülebilmeli:** Biri işe alınıp yerine başkasını (ekipmanını vererek) gönderebilir. Bu yüzden kontrol fotoğrafı, işçinin kayıtlı referans fotoğrafıyla yan yana gösterilir; karşılaştırmayı insan yapar.
+- **Yaptırım sistemin dışındadır** (karar). Sistem kayıt üretir, insan onaylar; ne yapılacağına şirket kendi prosedürüyle karar verir. Raporda "ceza" değil "inceleme ve geri bildirim" diye çerçevelenir.
 - Üniversite bitirme projesi (Işık Üniversitesi, Yönetim Bilişim Sistemleri). Ekip: Yunus Emre Köybaşı, Emre Batak.
 - **Bu bir prototip.** Laptop ve laptop kamerasıyla çalışır. Raspberry Pi, Jetson ve turnike yok.
 - Repo: https://github.com/EmreBatak/SafeSight (private).
@@ -38,7 +40,8 @@ Burada "karar" yazan şeyler kesinleşmiştir; "öneri" yazanlar henüz konuşul
 - **Ferdi kurtarıcı.** Belde ya da omuzda taşınan, sadece acil durumda takılan oksijenli kaçış cihazı; istasyonda "takılı mı" diye kontrol edilemez.
 - Maske sızdırmazlık (fit) testi, saha içinde sürekli izleme, kask, yelek ve diğer KKD.
 - Fiziksel turnike/kapı kontrolü.
-- **Yüz tanıma.** Kimlik QR kartla belirlenir. Biyometrik veri KVKK'da özel nitelikli kişisel veri; açık rıza ve ek önlem ister, ayrıca ikinci bir model demek. Raporda "ileride yapılabilir" diye geçer.
+- **Otomatik yüz tanıma / yüz doğrulama.** Kimlik QR ile belirlenir, kişi kontrolünü insan referans fotoğrafa bakarak yapar. Otomatik yüz tanıma biyometrik veri işlemedir (KVKK'da özel nitelikli kişisel veri; açık rıza ve ek önlem ister) ve ikinci bir model demek. Raporda "ileride yapılabilir" diye geçer.
+- Yaptırım / disiplin işlemleri (şirketin kendi prosedürü).
 
 ## 3. Sınıflar ve karar kuralı (karar)
 
@@ -63,9 +66,9 @@ YOLO modeli 3 sınıf öğrenir. Hepsi toz maskesi için tanımlıdır.
 
 **Kontrol akışı (istasyon):**
 
-1. `IDLE`: QR kart beklenir.
-2. QR okununca kart indirilir, maske taraması başlar (`SCANNING`).
-3. Deneme başarılıysa → `APPROVED`, kaydedilir, ekran "GEÇEBİLİRSİN" der.
+1. `IDLE`: QR beklenir.
+2. QR okununca ekranda işçinin adı ve referans fotoğrafı görünür (yanındakiler de kimin geldiğini görür); maske taraması başlar (`SCANNING`).
+3. Deneme başarılıysa → `APPROVED`, fotoğraf çekilir, kaydedilir, ekran "GEÇEBİLİRSİN" der.
 4. Başarısızsa → ekran nedeni söyler ("MASKENİ DÜZELT", "deneme 1/3") ve yeni deneme başlar.
 5. **En fazla 3 deneme** (ayarlanabilir). Hepsi başarısızsa → `REJECTED`, fotoğraf çekilir, kayıt panele `pending` olarak düşer.
 6. Aynı işçi **üst üste 3 kez `REJECTED`** alırsa `alerts` tablosuna uyarı yazılır.
@@ -76,13 +79,14 @@ YOLO modeli 3 sınıf öğrenir. Hepsi toz maskesi için tanımlıdır.
 - ByteTrack'in `track_buffer` değerini kare sayısı yerine saniyeye göre ayarla (~2 sn). Laptop FPS'i benchmarklardan düşük olacak.
 - Eşikler (0.7, %80, 15 ve 5 gözlem, 3 deneme) koda sabit yazılmaz; bir ayar dosyasında durur ve doğrulama setinde ayarlanır. Kendi ortamımızda 0.7 kimseyi onaylamayabilir (FRR ve inceleme yükü artar).
 - `no_face` = "güven eşiğini geçen, 3 sınıftan hiçbir tespit yok". Modelde ayrı bir "yüz" sınıfı yok.
-- Laptop kamerası 1–3 m'den QR'ı zor okur; kart kameraya yaklaştırılıp okutulur, sonra indirilir (kart maskeyi kapatmasın diye akış zaten böyle).
+- **QR'ın yeri (açık):** Elde kart, maskeyi kapattığı için elendi. Öneri: yelekte göğüste büyük QR (10–15 cm; düz yüzey, yüzle aynı karede, QR ve maske aynı anda okunur). Alternatif: kask (daha kişisel ama küçük ve kavisli yüzey). 1. adımda basılı QR ile kask ve göğüs 1/2/3 m'den denenip karar verilecek. QR uzaktan okunmazsa yedek: AprilTag/ArUco işaretleri (OpenCV `cv2.aruco`).
+- Onaylanan kayıtların küçük bir kısmı (ör. %5) rastgele incelemeye düşsün; oran ayar dosyasında.
 
 ## 4. Mimari (karar)
 
 ```
 Laptop webcam
-  → QR kart (OpenCV QRCodeDetector) ile işçi kimliği
+  → Kişiye özel QR (OpenCV QRCodeDetector) ile işçi kimliği
   → YOLO11n (3 sınıf)            # Ultralytics
   → ByteTrack                     # model.track(..., tracker="bytetrack.yaml")
   → Karar motoru (kural + deneme hakkı, bkz. §3)
@@ -129,7 +133,8 @@ safesight/
 ## 5. Veritabanı (karar)
 
 ```sql
-workers  (id, badge_no, name, department, active)
+workers  (id, badge_no, name, department, active,
+          reference_photo_path)  -- işe kayıtta onamla çekilen fotoğraf
 stations (id, name, location)
 checks   (id, worker_id, station_id, started_at, ended_at,
           attempts,        -- kullanılan deneme sayısı
@@ -194,12 +199,15 @@ Kullanılmayanlar ve nedenleri:
 
 ### 6.3 Gizlilik (karar)
 
-- Yüz tanıma yok; kimlik QR kartla.
-- Panelde gösterilen ve saklanan fotoğraflar **yüzü bulanıklaştırılmış** olur.
-- **Fotoğraf saklama:** `REJECTED` kayıtların fotoğrafı inceleme bitene kadar, sonra sınırlı süre saklanır. `APPROVED` kayıtların fotoğrafı çekilir ama kısa süre tutulur (süre belirlenmedi); her işçinin her gün yüzü uzun süre depolanmaz.
-- **Eğitim fotoğrafları bulanıklaştırılmaz.** Maske yüzün üstünde olduğu için bulanık görüntüyle model eğitilemez. Bunlar sadece onam veren gönüllülerden alınır, ayrı ve erişimi kısıtlı bir yerde saklanır.
-- İşçiler bilgilendirilir, kayıtlar sınırlı süre tutulur.
-- **Açık çelişki (sonra konuşulacak):** İnceleyen kişi maskeyi görmeli, ama tüm yüz bulanıklaştırılırsa maske de gizlenir. Öneri: sadece göz bölgesini bulanıklaştırmak.
+- Otomatik yüz tanıma yok; kimlik QR ile, kişi kontrolü insan gözüyle.
+- **İnceleme fotoğrafları bulanıklaştırılmaz.** İnceleyen kişi hem maskeyi hem kimin geldiğini görmeli; tüm yüz ya da göz bölgesi bulanıklaştırma ikisini de bozuyordu. Gizlilik bulanıklaştırmayla değil şunlarla sağlanır:
+  - fotoğrafları sadece yetkili sorumlu görür, her erişim loglanır;
+  - fotoğraflar **7 gün** saklanır, sonra silinir; inceleme bu süre içinde yapılır, karar kaydı fotoğrafsız kalır;
+  - fotoğrafların dışarı verilmesi, dışa aktarılması ya da başka amaçla kullanılması **yasaktır**;
+  - kadrajdaki diğer kişiler bulanıklaştırılır.
+- **Eğitim fotoğrafları** sadece onam veren gönüllülerden alınır, ayrı ve erişimi kısıtlı bir yerde saklanır.
+- İşçiler bilgilendirilir. Referans fotoğraf işe kayıtta onamla çekilir.
+- Not (hukuki görüş değil): fotoğrafa insanın bakıp karşılaştırması genelde biyometrik veri işleme sayılmaz; otomatik tanıma sayılır. Raporda bu ayrım yazılır.
 - Öneri: incelenen kayıtlar (özellikle `overturned`) yeni etiketli veri olur ve modeli yeniden eğitmekte kullanılabilir; ama işçi fotoğrafıyla eğitim için ayrıca onam gerekir.
 
 ## 7. Değerlendirme (karar)
@@ -236,7 +244,7 @@ Ekip bölüşümü önerisi: veri ve model (2, 3, 5); takip ve karar motoru (4);
   - **Santos ve ark. (2025):** Dahil edilen çalışmalarda madencilik yok; raporda "inşaat, imalat ve diğer riskli sektörler" diye geçiyor.
   - **Yang ve ark. (2022):** Genel nesne tanıma için. Yüz bulanıklaştırmanın maske/kask tespitine zararı için Wang ve ark. (2021) kullanılıyor (~%7 düşüş).
   - **Al-Bayati (2023)** rapordan çıkarıldı; tablodaki 4 numarada Mat Zin & Ismail ile karışmış.
-- Limitations: toz maskesi CO, metan ve oksijen eksikliğine karşı korumaz; sistem ferdi kurtarıcıyı kontrol etmez; sonuçlar prototip ölçeğinde.
+- Limitations: toz maskesi CO, metan ve oksijen eksikliğine karşı korumaz; sistem ferdi kurtarıcıyı kontrol etmez; sonuçlar prototip ölçeğinde. Eklenecek: ekipman/QR başkasına verilebilir (kişi kontrolü insana bağlı, otomatik yüz doğrulama ileride); gerçek sahada QR tozlanıp okunamayabilir.
 
 ## 10. Literatür durumu
 
