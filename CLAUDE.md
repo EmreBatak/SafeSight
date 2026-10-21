@@ -230,7 +230,7 @@ Ekip bölüşümü önerisi: veri ve model (2, 3, 5); takip ve karar motoru (4);
 - **yazar:** sadece isimler, kurum yazılmaz.
 - **tipi:** açıkça mı belirtilmiş, çıkarım mı; kullanıcıya ayrıca söylenir.
 - **keywords:** o çalışmanın alt başlığı.
-- **kısaca özeti:** İngilizce, en fazla 2 kısa cümle, **parantez yok**.
+- **kısaca özeti:** İngilizce, kısa, yaklaşık 2 cümle (biraz uzun olması sorun değil), parantezden kaçın.
 - **dataset ve yöntemler:** kısa, 2–4 madde.
 
 **Durum:** 50 çalışma tamam (dosya: `Proje Literature Review.xlsx`). Numaralar tablodaki `id` sütunudur.
@@ -255,15 +255,11 @@ Not: Suryawanshi ve ark. (2023) raporda kullanılıyor ama tabloda yok.
 
 Tabloda bilinen sorunlar (kullanıcı düzeltecek; Ekim 2026'daki tabloya göre kontrol edildi):
 
-- **4:** Başlık ve yazar Mat Zin & Ismail, ama yıl 2023, link ve künye Al-Bayati vd. (2023).
-- **29 (Abebil 2023):** Link, 28'deki Aram (2021) makalesine gidiyor.
-- **1:** Hücrede Frontiers linki yazıyor, ama tıklanan köprü IEEE Xplore'a gidiyor.
-- **20 (Nath 2020):** Link 5 dakikalık imzalı bir PDF linki, çalışmaz. DOI kullanılmalı.
-- **21:** Link Cloudflare token'ı içeriyor; temiz link konmalı.
-- **Yıl ile künye uyuşmuyor:** 45 (YOLOv10) yıl 2022, künye 2024. 18 (SH17) yıl 2024, künye 2025.
+- **4 (Mat Zin & Ismail):** Link artık doğru makaleye (Procedia 2012) gidiyor ama 5 dakikalık imzalı PDF linki, çalışmaz. Yıl hâlâ 2023, künye hâlâ Al-Bayati vd. (2023). Makale 2012'li; düzeltilince 2020 öncesi sayısı 4 olur.
+- **20 (Nath 2020):** Link 5 dakikalık imzalı PDF linki, çalışmaz. DOI kullanılmalı.
+- **21:** Link Cloudflare token'ı içeriyor; temiz link daha iyi olur.
 - **22:** Künye APA değil ("Osman, K. A. Y. A., & ŞİMŞEK, S." → "Kaya, O., & Şimşek, S."); künyedeki başlık da sütundakinden farklı.
-- **27 (ÇSGB rehberi):** Devlet rehberi, kurala aykırı; künye "alışma" diye başlıyor (Ç eksik). Tutulacak mı, karar verilmedi.
-- **2020 öncesi:** 8, 23, 24 (üç tane; kural 1–2 istisnaya izin veriyor).
+- **27 (ÇSGB rehberi):** Devlet rehberi, kurala aykırı. Tutulacak mı, karar verilmedi.
+- **2020 öncesi:** 8, 23, 24 (kural 1–2 istisnaya izin veriyor).
 - **Yazar sütununda kurum var:** 2–10, 16, 19–26, 29, 41–45 (bazılarında "In-text:" notu da var).
-- **Özet kuralı:** Yaklaşık yarısı 2 cümleden uzun, bazılarında parantez var; özellikle 16–30 ve 41–45. 31–40 ve 46–50 kurala uyuyor.
-- Önceki "13 ile 18, 15 ile 17 aynı çalışma" notu yanlıştı; hepsi farklı makaleler.
+- Düzeltildi: 18 ve 45'in yılı, 27'nin künyesi, 29'un linki. 1'in linki doğru. "13/18, 15/17 aynı çalışma" notu yanlıştı.
