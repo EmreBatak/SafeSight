@@ -80,7 +80,9 @@ YOLO modeli 3 sınıf öğrenir. Hepsi toz maskesi için tanımlıdır.
 - Eşikler (0.7, %80, 15 ve 5 gözlem, 3 deneme) koda sabit yazılmaz; bir ayar dosyasında durur ve doğrulama setinde ayarlanır. Kendi ortamımızda 0.7 kimseyi onaylamayabilir (FRR ve inceleme yükü artar).
 - `no_face` = "güven eşiğini geçen, 3 sınıftan hiçbir tespit yok". Modelde ayrı bir "yüz" sınıfı yok.
 - **QR'ın yeri (açık):** Elde kart, maskeyi kapattığı için elendi. Öneri: yelekte göğüste büyük QR (10–15 cm; düz yüzey, yüzle aynı karede, QR ve maske aynı anda okunur). Alternatif: kask (daha kişisel ama küçük ve kavisli yüzey). 1. adımda basılı QR ile kask ve göğüs 1/2/3 m'den denenip karar verilecek. QR uzaktan okunmazsa yedek: AprilTag/ArUco işaretleri (OpenCV `cv2.aruco`).
-- Onaylanan kayıtların küçük bir kısmı (ör. %5) rastgele incelemeye düşsün; oran ayar dosyasında.
+- Onaylanan kayıtların incelenmesi iki aşamalı olsun:
+  - **Test/pilot döneminde onaylananların hepsi incelenir.** FAR (maske yanlışken onay) ancak böyle ölçülür.
+  - **Normal kullanımda:** eşiğe yakın onaylar (ör. `proper_ratio` sınırda) ve küçük bir rastgele örnek (ör. %5) incelemeye düşer; hepsini incelemek modeli anlamsızlaştırır, sorumlu her gün herkese bakmak zorunda kalır. Onaylananlar yine de 7 gün panelde listelenir. Oranlar ayar dosyasında.
 
 ## 4. Mimari (karar)
 
