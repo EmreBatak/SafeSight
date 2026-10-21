@@ -14,12 +14,13 @@ Burada "karar" yazan şeyler kesinleşmiştir; "öneri" yazanlar henüz konuşul
 
 ## 1. Proje nedir?
 
-**SafeSight**: Maden sahası girişinde, işçinin **toz maskesini doğru takıp takmadığını** kamerayla kontrol eden bir giriş kapısı prototipi.
+**SafeSight**: Maden sahası girişinde, işçinin **toz maskesini doğru takıp takmadığını** kamerayla kontrol eden bir **kontrol istasyonu** prototipi. Turnike/kapı yok; model karar verir, şüpheli kayıtları **insan inceler** (human-in-the-loop).
 
-- Maske doğru takılıysa kapı açılır. Maske yoksa ya da yanlış takılıysa kapı kapalı kalır ve ekran nedenini söyler.
-- Her karar işçinin kart numarasıyla kaydedilir ve bir web panelinde gösterilir. Aynı işçi üst üste reddedilirse iş güvenliği sorumlusuna uyarı düşer.
+- İşçi QR kart ile kendini tanıtır, sonra maskesi taranır.
+- Maske doğruysa kayıt `APPROVED` olur. Değilse ekran hemen "maskeni düzelt" der ve deneme hakkı verir; denemeler bitince kayıt `REJECTED` olur, fotoğrafıyla birlikte panele düşer.
+- İş güvenliği sorumlusu panelde reddedilen kayıtları inceler: modelin kararını onaylar ya da düzeltir (model hata yapabilir). Gerekli işlem **sadece insan onayından sonra** yapılır. Raporda "ceza" değil "inceleme ve geri bildirim/eğitim" diye çerçevelenir.
 - Üniversite bitirme projesi (Işık Üniversitesi, Yönetim Bilişim Sistemleri). Ekip: Yunus Emre Köybaşı, Emre Batak.
-- **Bu bir prototip.** Laptop ve laptop kamerasıyla çalışır. Raspberry Pi, Jetson ve gerçek turnike yok.
+- **Bu bir prototip.** Laptop ve laptop kamerasıyla çalışır. Raspberry Pi, Jetson ve turnike yok.
 - Repo: https://github.com/EmreBatak/SafeSight (private).
 
 ## 2. Kapsam (karar)
@@ -27,15 +28,17 @@ Burada "karar" yazan şeyler kesinleşmiştir; "öneri" yazanlar henüz konuşul
 **Kapsamda:**
 
 - Kullan-at toz maskeleri: **FFP2 / FFP3, N95 tipi**, ventilli ve ventilsiz.
-- Girişte tek kişi, kameraya 1–3 m mesafe.
+- İstasyonda tek kişi, kameraya 1–3 m mesafe.
+- Reddedilen kayıtlar için panelde insan incelemesi.
 
 **Kapsam dışı:**
 
 - Cerrahi maske, bez maske, bandana. Bunlar tespit hedefi değil.
 - Yarım yüz ve tam yüz (kartuşlu) respiratörler.
-- **Ferdi kurtarıcı.** Belde ya da omuzda taşınan, sadece acil durumda takılan oksijenli kaçış cihazı; kapıda "takılı mı" diye kontrol edilemez.
+- **Ferdi kurtarıcı.** Belde ya da omuzda taşınan, sadece acil durumda takılan oksijenli kaçış cihazı; istasyonda "takılı mı" diye kontrol edilemez.
 - Maske sızdırmazlık (fit) testi, saha içinde sürekli izleme, kask, yelek ve diğer KKD.
-- Yüz tanıma. Kimlik QR kartla belirlenir.
+- Fiziksel turnike/kapı kontrolü.
+- **Yüz tanıma.** Kimlik QR kartla belirlenir. Biyometrik veri KVKK'da özel nitelikli kişisel veri; açık rıza ve ek önlem ister, ayrıca ikinci bir model demek. Raporda "ileride yapılabilir" diye geçer.
 
 ## 3. Sınıflar ve karar kuralı (karar)
 
@@ -47,43 +50,51 @@ YOLO modeli 3 sınıf öğrenir. Hepsi toz maskesi için tanımlıdır.
 | `mask_improper` | Maske var ama burun ya da ağız açıkta (burun altında, çenede vb.) |
 | `no_mask` | Maske yok |
 
-**Kapı açılma kuralı (track bazında):**
+**Onay kuralı (track bazında, bir deneme için):**
 
 1. ByteTrack her kişiye bir track ID verir. Karar motoru o track'in **son 15 gözlemini** tutar.
-2. Kapı şu üç koşulun hepsi sağlanınca açılır (`OPEN`):
+2. Deneme şu üç koşulun hepsi sağlanınca başarılıdır (`APPROVED`):
    - son 15 gözlemin **en az %80'i** `mask_proper`;
    - **son 5 gözlemin hepsi** `mask_proper`;
    - güven skoru **≥ 0.7** (daha düşük skorlu tespitler sayılmaz).
-3. **Fail-closed:** emin olunamayan her durumda kapı kapalı kalır (`HOLD`).
-4. **Tek kişi kuralı:** kadrajda birden fazla kişi varsa `HOLD` (reason: `multiple_people`).
-5. Yüz bulunamazsa `HOLD` (reason: `no_face`).
-6. Aynı işçi **üst üste 3 kez `HOLD`** alırsa `alerts` tablosuna uyarı yazılır.
+3. **Fail-closed:** emin olunamayan her durum başarısız denemedir. Kesin `REJECTED` olunca insan incelemesine gider.
+4. **Tek kişi kuralı:** kadrajda birden fazla kişi varsa başarısız (reason: `multiple_people`).
+5. Yüz bulunamazsa başarısız (reason: `no_face`).
+
+**Kontrol akışı (istasyon):**
+
+1. `IDLE`: QR kart beklenir.
+2. QR okununca kart indirilir, maske taraması başlar (`SCANNING`).
+3. Deneme başarılıysa → `APPROVED`, kaydedilir, ekran "GEÇEBİLİRSİN" der.
+4. Başarısızsa → ekran nedeni söyler ("MASKENİ DÜZELT", "deneme 1/3") ve yeni deneme başlar.
+5. **En fazla 3 deneme** (ayarlanabilir). Hepsi başarısızsa → `REJECTED`, fotoğraf çekilir, kayıt panele `pending` olarak düşer.
+6. Aynı işçi **üst üste 3 kez `REJECTED`** alırsa `alerts` tablosuna uyarı yazılır.
 
 Öneriler (henüz konuşulmadı):
 
-- QR okunduktan sonra 10 sn içinde karar çıkmazsa `HOLD` (reason: `timeout`).
+- Bir denemede 10 sn içinde karar çıkmazsa başarısız say (reason: `timeout`).
 - ByteTrack'in `track_buffer` değerini kare sayısı yerine saniyeye göre ayarla (~2 sn). Laptop FPS'i benchmarklardan düşük olacak.
-- Eşikler (0.7, %80, 15 ve 5 gözlem) koda sabit yazılmaz; bir ayar dosyasında durur ve doğrulama setinde ayarlanır. Kendi ortamımızda 0.7 kapıyı hiç açmayabilir (FRR artar).
+- Eşikler (0.7, %80, 15 ve 5 gözlem, 3 deneme) koda sabit yazılmaz; bir ayar dosyasında durur ve doğrulama setinde ayarlanır. Kendi ortamımızda 0.7 kimseyi onaylamayabilir (FRR ve inceleme yükü artar).
 - `no_face` = "güven eşiğini geçen, 3 sınıftan hiçbir tespit yok". Modelde ayrı bir "yüz" sınıfı yok.
-- QR ve maske aynı kamerada; kart yüze tutulursa maskeyi kapatır. Akış: önce QR okunur, kart indirilir, maske kontrolü ondan sonra başlar. Laptop kamerası 1–3 m'den QR'ı zaten zor okur.
+- Laptop kamerası 1–3 m'den QR'ı zor okur; kart kameraya yaklaştırılıp okutulur, sonra indirilir (kart maskeyi kapatmasın diye akış zaten böyle).
 
 ## 4. Mimari (karar)
 
 ```
 Laptop webcam
+  → QR kart (OpenCV QRCodeDetector) ile işçi kimliği
   → YOLO11n (3 sınıf)            # Ultralytics
   → ByteTrack                     # model.track(..., tracker="bytetrack.yaml")
-  → Karar motoru (kural, bkz. §3)
-  → Ekran mesajı ("GEÇİŞ AÇIK" / "MASKENİ DÜZELT")
-  → QR kart (OpenCV QRCodeDetector) ile işçi kimliği
+  → Karar motoru (kural + deneme hakkı, bkz. §3)
+  → Ekran mesajı ("GEÇEBİLİRSİN" / "MASKENİ DÜZELT")
   → FastAPI  → PostgreSQL (Docker)
-  → Next.js panel (geçişler, retler, uyarılar, istatistik)
+  → Next.js panel (kontroller, inceleme kuyruğu, uyarılar, istatistik)
 ```
 
 - **Model:** YOLO11n, tek model, 3 sınıf. Pose + sınıflandırıcı yolu ileride opsiyonel.
 - **Eğitim:** Google Colab ya da Kaggle'ın ücretsiz GPU'su. Laptop CPU'su sadece çalıştırma (inference) için.
 - **Panel:** Next.js (karar). Streamlit alternatif olarak konuşulmuştu ama Next.js'te kalındı.
-- **Kapı uygulaması:** Python masaüstü uygulaması, **PySide6** (karar). Kamera + model + takip ayrı bir `QThread`'de; arayüz sadece gösterir. Karar motoru Qt'den bağımsız saf Python. Panel Next.js'te kalır (masaüstüne taşınmaz).
+- **İstasyon uygulaması:** Python masaüstü uygulaması, **PySide6** (karar). Kamera + model + takip ayrı bir `QThread`'de; arayüz sadece gösterir. Karar motoru Qt'den bağımsız saf Python. Panel Next.js'te kalır (masaüstüne taşınmaz).
 - Öneri: Next.js'e süre yetmezse yedek plan olarak FastAPI'nin sunduğu basit bir HTML sayfası.
 - Not: YOLO11'in hakemli bir makalesi yok. Raporda seçim YOLO ailesi üzerine yapılmış çalışmalara dayandırılıyor.
 
@@ -103,7 +114,7 @@ safesight/
     split_by_person.py
   pyproject.toml        # paket + bağımlılıklar; `pip install -e .[dev]`
   src/
-    gate/               # PySide6 kapı uygulaması; `python -m gate`
+    station/            # PySide6 istasyon uygulaması; `python -m station`
       app.py            #   giriş noktası, argümanlar
       worker.py         #   QThread: kamera + model (+ ileride takip, QR)
       ui/               #   pencereler ve ekran mesajları
@@ -119,16 +130,21 @@ safesight/
 
 ```sql
 workers  (id, badge_no, name, department, active)
-gates    (id, name, location)
-passages (id, worker_id, gate_id, started_at, ended_at,
-          decision,        -- 'OPEN' | 'HOLD'
+stations (id, name, location)
+checks   (id, worker_id, station_id, started_at, ended_at,
+          attempts,        -- kullanılan deneme sayısı
+          decision,        -- 'APPROVED' | 'REJECTED'
           reason,          -- 'proper' | 'improper' | 'no_mask' | 'no_face' | 'multiple_people'
-          proper_ratio, snapshot_path)
-alerts   (id, worker_id, passage_id, type, created_at, acknowledged)
+          proper_ratio, snapshot_path,
+          review_status,   -- NULL (APPROVED) | 'pending' | 'confirmed' | 'overturned'
+          reviewed_by, reviewed_at, review_note)
+alerts   (id, worker_id, check_id, type, created_at, acknowledged)
 ```
 
-**API (karar):** `POST /passages`, `GET /stats`, kamera görüntüsü için bir MJPEG stream.
-Panelin ihtiyaç duyacağı ek uçlar (`GET /passages`, `GET /alerts`) öneri.
+- `confirmed`: sorumlu modelin reddini onayladı. `overturned`: model yanılmış, maske aslında doğru.
+
+**API (karar):** `POST /checks`, `PATCH /checks/{id}/review` (inceleme sonucu), `GET /stats`, kamera görüntüsü için bir MJPEG stream.
+Panelin ihtiyaç duyacağı ek uçlar (`GET /checks`, `GET /alerts`) öneri.
 
 ## 6. Dataset planı (karar)
 
@@ -180,26 +196,29 @@ Kullanılmayanlar ve nedenleri:
 
 - Yüz tanıma yok; kimlik QR kartla.
 - Panelde gösterilen ve saklanan fotoğraflar **yüzü bulanıklaştırılmış** olur.
+- **Fotoğraf saklama:** `REJECTED` kayıtların fotoğrafı inceleme bitene kadar, sonra sınırlı süre saklanır. `APPROVED` kayıtların fotoğrafı çekilir ama kısa süre tutulur (süre belirlenmedi); her işçinin her gün yüzü uzun süre depolanmaz.
 - **Eğitim fotoğrafları bulanıklaştırılmaz.** Maske yüzün üstünde olduğu için bulanık görüntüyle model eğitilemez. Bunlar sadece onam veren gönüllülerden alınır, ayrı ve erişimi kısıtlı bir yerde saklanır.
 - İşçiler bilgilendirilir, kayıtlar sınırlı süre tutulur.
-- Öneri (sonra konuşulacak): tüm yüzü bulanıklaştırmak maskeyi de gizler, sorumlu "maske neden yanlış?" sorusunu göremez. Sadece göz bölgesini bulanıklaştırmak bu sorunu çözer.
+- **Açık çelişki (sonra konuşulacak):** İnceleyen kişi maskeyi görmeli, ama tüm yüz bulanıklaştırılırsa maske de gizlenir. Öneri: sadece göz bölgesini bulanıklaştırmak.
+- Öneri: incelenen kayıtlar (özellikle `overturned`) yeni etiketli veri olur ve modeli yeniden eğitmekte kullanılabilir; ama işçi fotoğrafıyla eğitim için ayrıca onam gerekir.
 
 ## 7. Değerlendirme (karar)
 
 - Her sınıf için precision ve recall.
-- **Yanlış kabul oranı (FAR):** maske uygun değilken kapının açılması. **Yanlış red oranı (FRR):** maske doğruyken kapının kapalı kalması.
-- Geçiş başına karar süresi ve laptoptaki FPS.
+- **Yanlış kabul oranı (FAR):** maske uygun değilken `APPROVED`. **Yanlış red oranı (FRR):** maske doğruyken `REJECTED`.
+- **İnceleme yükü:** insanın incelemesi gereken kayıt oranı (FRR doğrudan sorumlunun iş yüküne dönüşür) ve incelemede `overturned` oranı.
+- Kontrol başına karar süresi, ortalama deneme sayısı ve laptoptaki FPS.
 - Sonuçlar farklı mesafelerde ve gerçek ışık koşullarında da raporlanır.
 - Öneri hedef: `no_mask` ve `mask_improper` sınıflarında recall ≥ %95.
 
 ## 8. Uygulama planı (sıra)
 
-1. **Ortam ve demo (2–3 gün):** Python 3.11 sanal ortamı, `pip install ultralytics opencv-python`. Hazır YOLO11n'i webcam'de çalıştır.
+1. **Ortam ve demo (2–3 gün):** Python 3.11 sanal ortamı, `pip install -e .[dev]`. Hazır YOLO11n'i PySide6 penceresinde webcam'de çalıştır.
 2. **Veri hazırlama (1 hafta):** Mendeley N95 için otomatik etiketleme ve kontrol; Kaggle VOC → YOLO çevirme; `data.yaml`.
 3. **İlk eğitim (2–3 gün):** YOLO11n, 3 sınıf, Colab/Kaggle GPU. Webcam'de çalışan bir demo çıkar; hocaya ilk gösterilecek şey bu.
-4. **Takip ve karar motoru (1 hafta):** ByteTrack ve §3'teki kural. Karar motoru için birim testleri.
+4. **Takip ve karar motoru (1 hafta):** ByteTrack, §3'teki kural, deneme hakkı ve istasyon akışı. Karar motoru için birim testleri.
 5. **Kendi verimiz (1–2 hafta, 3–4 ile paralel):** çekim, etiketleme, kişiye göre bölme, ince ayar eğitimi (fine-tune).
-6. **QR, veritabanı ve panel (1–2 hafta):** OpenCV QR, PostgreSQL (Docker), FastAPI, Next.js.
+6. **QR, veritabanı ve panel (1–2 hafta):** OpenCV QR, PostgreSQL (Docker), FastAPI, Next.js; panelde inceleme kuyruğu (onayla / düzelt).
 7. **Test ve rapor (1 hafta):** §7'deki metrikler.
 
 Ekip bölüşümü önerisi: veri ve model (2, 3, 5); takip ve karar motoru (4); backend ve panel (6).
@@ -209,6 +228,7 @@ Ekip bölüşümü önerisi: veri ve model (2, 3, 5); takip ve karar motoru (4);
 ## 9. Rapor durumu
 
 - Dosya: `SafeSight_Project_Summary.docx`. İngilizce, yaklaşık 4 sayfa, **26 kaynak**, tablo yok.
+- **Güncellenmeli:** Rapor hâlâ kapı/turnike modelini anlatıyor; kontrol istasyonu + insan incelemesine (§1, §3) göre düzeltilmeli.
 - Bölümler: 1 The Project, 2 Scope, 3 How the Prototype Works, 4 Technology Choices (4.1–4.6), 5 Dataset, 6 Evaluation, 7 Limitations, References.
 - Başlıkta sadece "Yunus Emre Köybaşı · Emre Batak | October 2026" yazıyor. Taha Öneş projede değil; danışman adı başlığa yazılmayacak.
 - Kontrol edilmiş ve doğru olan, tekrar tartışılmasın:
