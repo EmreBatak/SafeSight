@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Data (raw datasets and volunteer images never go into git)
+data/raw/
+data/yolo/images/
+data/yolo/labels/
+data/own/
+
+# Model weights and training runs
+models/
+runs/
+*.pt
+*.onnx
+
+# Gate snapshots
+snapshots/
+
+# Secrets
+.env
+
+# Node / Next.js
+node_modules/
+.next/
+
+# Packaging
+build/
+dist/
+*.spec
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
