@@ -83,8 +83,7 @@ Laptop webcam
 - **Model:** YOLO11n, tek model, 3 sınıf. Pose + sınıflandırıcı yolu ileride opsiyonel.
 - **Eğitim:** Google Colab ya da Kaggle'ın ücretsiz GPU'su. Laptop CPU'su sadece çalıştırma (inference) için.
 - **Panel:** Next.js (karar). Streamlit alternatif olarak konuşulmuştu ama Next.js'te kalındı.
-- **Kapı uygulaması:** Python masaüstü uygulaması (karar). GUI için öneri: PySide6; kamera + model + takip ayrı bir thread'de, karar motoru Qt'den bağımsız saf Python.
-- Açık soru: panel Next.js'te mi kalacak, yoksa o da masaüstüne mi taşınacak? Karar verilmedi.
+- **Kapı uygulaması:** Python masaüstü uygulaması, **PySide6** (karar). Kamera + model + takip ayrı bir `QThread`'de; arayüz sadece gösterir. Karar motoru Qt'den bağımsız saf Python. Panel Next.js'te kalır (masaüstüne taşınmaz).
 - Öneri: Next.js'e süre yetmezse yedek plan olarak FastAPI'nin sunduğu basit bir HTML sayfası.
 - Not: YOLO11'in hakemli bir makalesi yok. Raporda seçim YOLO ailesi üzerine yapılmış çalışmalara dayandırılıyor.
 
@@ -102,9 +101,13 @@ safesight/
     convert_kaggle_voc_to_yolo.py
     autolabel_mendeley_n95.py
     split_by_person.py
+  pyproject.toml        # paket + bağımlılıklar; `pip install -e .[dev]`
   src/
-    gate/               # ana döngü: kamera, model, takip, ekran, QR
-    decision/           # karar motoru (§3), birim testli
+    gate/               # PySide6 kapı uygulaması; `python -m gate`
+      app.py            #   giriş noktası, argümanlar
+      worker.py         #   QThread: kamera + model (+ ileride takip, QR)
+      ui/               #   pencereler ve ekran mesajları
+    decision/           # karar motoru (§3), birim testli, Qt'den bağımsız
   api/                  # FastAPI
   dashboard/            # Next.js
   models/               # eğitilmiş ağırlıklar (git'e girmez)
@@ -253,13 +256,4 @@ Alt başlıklar (keywords sütununa göre):
 
 Not: Suryawanshi ve ark. (2023) raporda kullanılıyor ama tabloda yok.
 
-Tabloda bilinen sorunlar (kullanıcı düzeltecek; Ekim 2026'daki tabloya göre kontrol edildi):
-
-- **4 (Mat Zin & Ismail):** Link artık doğru makaleye (Procedia 2012) gidiyor ama 5 dakikalık imzalı PDF linki, çalışmaz. Yıl hâlâ 2023, künye hâlâ Al-Bayati vd. (2023). Makale 2012'li; düzeltilince 2020 öncesi sayısı 4 olur.
-- **20 (Nath 2020):** Link 5 dakikalık imzalı PDF linki, çalışmaz. DOI kullanılmalı.
-- **21:** Link Cloudflare token'ı içeriyor; temiz link daha iyi olur.
-- **22:** Künye APA değil ("Osman, K. A. Y. A., & ŞİMŞEK, S." → "Kaya, O., & Şimşek, S."); künyedeki başlık da sütundakinden farklı.
-- **27 (ÇSGB rehberi):** Devlet rehberi, kurala aykırı. Tutulacak mı, karar verilmedi.
-- **2020 öncesi:** 8, 23, 24 (kural 1–2 istisnaya izin veriyor).
-- **Yazar sütununda kurum var:** 2–10, 16, 19–26, 29, 41–45 (bazılarında "In-text:" notu da var).
-- Düzeltildi: 18 ve 45'in yılı, 27'nin künyesi, 29'un linki. 1'in linki doğru. "13/18, 15/17 aynı çalışma" notu yanlıştı.
+Tablonun biçim düzeltmeleri kullanıcıya ait (tez yazımında); kod çalışmasında gündeme getirme.
