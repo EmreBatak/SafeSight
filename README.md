@@ -12,16 +12,30 @@ py -3.11 -m venv .venv
 pip install -e .[dev]
 ```
 
+## Setup (macOS, Python 3.11)
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+On first launch, macOS asks for camera access for the terminal app
+(System Settings → Privacy & Security → Camera).
+
 ## Run the station app
 
 ```powershell
 python -m station
 ```
 
+On macOS, activate the environment first with `source .venv/bin/activate`.
+
 Options: `--source 1` (another webcam) or `--source path/to/video.mp4` (a looping video instead of a webcam),
-`--model models/best.pt` (trained weights), `--fullscreen`.
+`--model yolo11n.pt` (pretrained COCO model instead of the mask model), `--fullscreen`.
 F11 toggles full screen, Esc leaves it.
-The first run downloads the pretrained `yolo11n.pt` (not committed).
+By default it loads the trained mask model `models/mask_n95_v1.pt` (not committed;
+copy it from `runs/detect/runs/n95_v1/weights/best.pt` after training).
 
 ## Tests
 

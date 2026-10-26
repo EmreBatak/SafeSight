@@ -1,10 +1,14 @@
 import argparse
 import sys
+from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
 from station.ui.main_window import MainWindow
 from station.worker import CameraWorker
+
+# Trained 3-class mask model (mask_proper, mask_improper, no_mask); not committed, see README.
+DEFAULT_MODEL = Path(__file__).resolve().parents[2] / "models" / "mask_n95_v1.pt"
 
 
 def parse_source(value: str) -> int | str:
@@ -17,7 +21,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--source", type=parse_source, default=0, help="webcam index or video file path (default: 0)"
     )
-    parser.add_argument("--model", default="yolo11n.pt", help="YOLO weights (default: pretrained yolo11n.pt)")
+    parser.add_argument(
+        "--model", default=str(DEFAULT_MODEL), help="YOLO weights (default: models/mask_n95_v1.pt)"
+    )
     parser.add_argument("--conf", type=float, default=0.5, help="minimum detection confidence to draw")
     parser.add_argument("--fullscreen", action="store_true", help="start in full screen (kiosk)")
     return parser.parse_args(argv)
