@@ -163,11 +163,16 @@ Panelin ihtiyaç duyacağı ek uçlar (`GET /checks`, `GET /alerts`) öneri.
    - Yapı: `Correct/` ve `Incorrect/`, her birinin altında `Bandana`, `Cotton`, `N95`, `Surgical`, onların altında `Child`, `Male`, `Female`.
    - **Sadece `N95` klasörleri kullanılır.** N95, FFP2 toz maskesiyle aynı kap şeklinde. `Correct/N95` → `mask_proper`, `Incorrect/N95` → `mask_improper`.
    - **Kutu etiketi yok**, etiketler klasör bazında. Yüz kutuları bir yüz tespit modeliyle otomatik çıkarılır, sonra elle kontrol edilir. Maskeli yüzlerde tespit kaçabilir.
-   - Lisans Mendeley sayfasında boş görünüyor. Makale CC BY; kullanırken atıf yapılacak.
-   - N95 klasöründe kaç görüntü olduğu bilinmiyor; indirince sayılacak.
+   - Lisans **CC BY 4.0** (Mendeley API'deki `data_licence` alanı); kullanırken atıf yapılacak.
+   - Tek dosya: `NewFace Mask Dataset.zip`, 3,7 GB, toplam 24.916 görüntü. `data/raw/mendeley/` altına indirildi; sadece N95 klasörleri çıkarıldı.
+   - **N95: 5.790 görüntü.** `Correct`: 2.401 (Child 934, Female 779, Male 688). `Incorrect`: 3.389 (Child 822, Female 1.471, Male 1.096). Çoğu 1280×768.
+   - Örneklere bakınca (Ekim 2026): az sayıda kişi, aynı kişinin çok sayıda fotoğrafı (birbirine çok benzer kareler); çok sayıda yan profil; bir kısmı 90°/180° döndürülmüş (veri setine hazır eklenmiş artırma gibi); bazıları uzaktan tam boy. Maskeler beyaz, katlanır KN95/FFP2 tipi. Yanlış takma örnekleri çene altı ve burun altı.
+   - Sonuçları: rastgele train/val bölmesi aynı kişiyi iki tarafa koyar, val skorları şişer (raporlanan sonuçlar zaten kendi test setimizden). Döndürülmüş görüntülerde yüz tespiti kaçar; bunlar elenmeli ya da düzeltilmeli.
+   - Öneri: madencilerin hepsi yetişkin; `Child` klasörleri (1.756 görüntü) çıkarılabilir ya da azaltılabilir.
 2. **Kaggle Face Mask Detection** (`no_mask` sınıfı için)
    - Link: https://www.kaggle.com/datasets/andrewmvd/face-mask-detection
-   - 853 görüntü, CC0, PASCAL VOC (XML) formatında; YOLO formatına çevrilecek.
+   - 853 görüntü, CC0, PASCAL VOC (XML) formatında; YOLO formatına çevrilecek. `data/raw/kaggle/` altına indirildi.
+   - Etiketler: 3.232 `with_mask`, 717 `without_mask`, 123 `mask_weared_incorrect`. **Tüm yüzleri maskesiz olan sadece 60 görüntü (89 yüz) var**; geri kalan maskesiz yüzler maskelilerle aynı karede. Yani bu veriden tam görüntü olarak çok az `no_mask` çıkar.
    - **Sadece `without_mask` yüzleri kullanılır**; cerrahi maskeli yüzler kullanılmaz.
    - **Dikkat:** Bir görüntüde hem maskeli hem maskesiz yüz varsa, maskeli yüzü silip görüntüyü tutma. Etiketsiz kalan yüzü model arka plan sanar. Ya sadece tüm yüzleri `without_mask` olan görüntüleri al, ya da yüzleri kırpıp kullan.
 
