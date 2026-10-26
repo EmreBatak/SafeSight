@@ -1,0 +1,6 @@
+train: yolo/images/train
+val: yolo/images/val
+names:
+  0: mask_proper
+  1: mask_improper
+  2: no_mask

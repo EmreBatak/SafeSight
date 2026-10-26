@@ -11,6 +11,7 @@ data/raw/
 data/yolo/images/
 data/yolo/labels/
 data/own/
+data/prepared/
 
 # Model weights and training runs
 models/
