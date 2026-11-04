@@ -12,3 +12,7 @@ def test_other_values_are_file_paths():
 
 def test_default_source_is_first_webcam():
     assert parse_args([]).source == 0
+
+
+def test_model_rate_is_limited_by_default():
+    assert parse_args([]).max_fps == 10.0

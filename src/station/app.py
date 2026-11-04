@@ -26,6 +26,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--conf", type=float, default=0.5, help="minimum detection confidence to draw")
     parser.add_argument("--fullscreen", action="store_true", help="start in full screen (kiosk)")
+    parser.add_argument(
+        "--max-fps", type=float, default=10.0, help="run the model at most this often per second; 0 = no limit (default: 10)"
+    )
     return parser.parse_args(argv)
 
 
@@ -33,7 +36,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     app = QApplication(sys.argv[:1])
 
-    worker = CameraWorker(source=args.source, model_path=args.model, conf=args.conf)
+    worker = CameraWorker(
+        source=args.source,
+        model_path=args.model,
+        conf=args.conf,
+        max_fps=args.max_fps,
+    )
     window = MainWindow(worker)
     if args.fullscreen:
         window.showFullScreen()

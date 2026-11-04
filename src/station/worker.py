@@ -1,5 +1,10 @@
+import os
 import sys
 import time
+
+# Torch's OpenMP threads spin on the CPU between frames instead of sleeping, which kept
+# ~8 cores busy even when the model ran only 10 times a second. Must be set before torch loads.
+os.environ.setdefault("OMP_WAIT_POLICY", "PASSIVE")
 
 import cv2
 from PySide6.QtCore import QThread, Signal
@@ -33,11 +38,19 @@ class CameraWorker(QThread):
     status = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, source: int | str, model_path: str, conf: float, parent=None):
+    def __init__(
+        self,
+        source: int | str,
+        model_path: str,
+        conf: float,
+        max_fps: float = 10.0,
+        parent=None,
+    ):
         super().__init__(parent)
         self.source = source
         self.model_path = model_path
         self.conf = conf
+        self.max_fps = max_fps
 
     def run(self) -> None:
         self.status.emit("Model yükleniyor…")
@@ -60,10 +73,18 @@ class CameraWorker(QThread):
             return
 
         is_file = isinstance(self.source, str)
+        # The decision rule needs ~15 observations, not every webcam frame, so the
+        # model runs at most max_fps times a second and the thread sleeps in between.
+        interval = 1.0 / self.max_fps if self.max_fps > 0 else 0.0
         fps = 0.0
         last = time.perf_counter()
+        next_start = last
         try:
             while not self.isInterruptionRequested():
+                wait = next_start - time.perf_counter()
+                if wait > 0:
+                    time.sleep(wait)
+                next_start = max(next_start + interval, time.perf_counter())
                 ok, frame = cap.read()
                 if not ok and is_file:
                     # Loop video files so they can stand in for a webcam during demos.
