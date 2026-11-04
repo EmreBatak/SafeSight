@@ -39,6 +39,20 @@ F11 toggles full screen, Esc leaves it.
 By default it loads the trained mask model `models/mask_n95_v1.pt` (not committed;
 copy it from `runs/detect/runs/n95_v1/weights/best.pt` after training).
 
+## Record own training data
+
+One person per run, and only people who gave written consent (CLAUDE.md §6.2):
+
+```powershell
+python scripts/capture_webcam.py --person emre --model models/face/face_detection_yunet_2023mar.onnx
+```
+
+Press 1 (mask worn correctly), 2 (worn wrongly: nose or chin uncovered) or 3 (no mask) to record that class,
+space to pause, q to quit. Change distance (1–3 m), angle and light while recording. Frames are saved
+with the YuNet face box to `data/own/<person>/` (not committed); frames with no face or two faces are skipped.
+The YuNet weights `face_detection_yunet_2023mar.onnx` come from
+[opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet).
+
 ## Tests
 
 ```powershell
