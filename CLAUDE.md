@@ -99,7 +99,7 @@ Laptop webcam
 
 - **Model:** YOLO11n, tek model, 3 sınıf. Pose + sınıflandırıcı yolu ileride opsiyonel.
 - **Eğitim:** İlk eğitim Yunus Emre'nin M4 laptopunda (MPS) yapıldı. Alternatifler: Emre'nin RTX 3050 Ti laptopu, Google Colab/Kaggle. Emre'nin masaüstü PC'si AMD GPU'lu, eğitimde kullanılamaz.
-- **Model dosyaları git'e girmez** (`models/`, `*.pt`). İstasyon varsayılan olarak `models/mask_n95_v1.pt` yükler; dosya ekip içinde git dışından paylaşılır. Model sürümleri **GitHub Releases**'te durur (`model-v1`, `model-v2` …); indirmek için `gh release download model-v1 -D models`.
+- **Model dosyaları git'e girmez** (`models/`, `*.pt`). İstasyon varsayılan olarak `models/mask_n95_v3.pt` yükler; dosya ekip içinde git dışından paylaşılır. Model sürümleri **GitHub Releases**'te durur (`model-v1`, `model-v2`, `model-v3` …); indirmek için `gh release download model-v3 -D models`.
 
 **İlk eğitim sonucu (v1, Ekim 2026):** YOLO11n, 50 epoch. Val mAP50 0.93 ama val de public veriden ve yanıltıcı (§6.1). `mask_proper` recall 0.66. Webcam'de maskesiz yüzü zaman zaman maske sınıfı diye etiketliyor; `no_mask` verisi sadece 112 küçük Kaggle kırpması, yakın plan maskesiz yüz verisi gerekiyor.
 - **Panel:** Next.js (karar). Streamlit alternatif olarak konuşulmuştu ama Next.js'te kalındı.

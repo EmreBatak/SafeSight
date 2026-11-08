@@ -36,8 +36,8 @@ Options: `--source 1` (another webcam) or `--source path/to/video.mp4` (a loopin
 To keep the laptop cool, the model runs at most 10 times a second; change it with `--max-fps 15`
 (`--max-fps 0` removes the limit).
 F11 toggles full screen, Esc leaves it.
-By default it loads the trained mask model `models/mask_n95_v1.pt` (not committed;
-copy it from `runs/detect/runs/n95_v1/weights/best.pt` after training).
+By default it loads the trained mask model `models/mask_n95_v3.pt` (not committed;
+get it with `gh release download model-v3 -D models`).
 
 ## Record own training data
 
