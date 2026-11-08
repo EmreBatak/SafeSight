@@ -53,6 +53,28 @@ with the YuNet face box to `data/own/<person>/` (not committed); frames with no 
 The YuNet weights `face_detection_yunet_2023mar.onnx` come from
 [opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet).
 
+## QR placement trial
+
+QR reading needs no training: OpenCV decodes the code directly. What needs testing is which card size and
+placement (helmet or chest) the webcam reads from 1–3 m. First print the cards:
+
+```powershell
+python scripts/make_qr_cards.py
+```
+
+This writes `data/qr/cards.pdf` (not committed): QR and ArUco cards for `SS-0001` at 5, 7, 10 and 15 cm,
+one per page. Print at 100%, not "fit to page", and check the 10 cm line on the page. ArUco markers are the
+fallback if QR does not read from 3 m. Then run one condition at a time:
+
+```powershell
+python scripts/qr_trial.py --placement chest --size 15 --distance 2 --person p01
+python scripts/qr_trial.py --marker aruco --placement helmet --size 10 --distance 3 --person p01
+```
+
+Space starts a trial; a detector passes if it reads the card within 3 s (`--timeout`). After 10 trials
+(`--trials`) the results are appended to `data/qr/trials.csv`; no images are saved. The camera opens at
+1280x720 by default, since a 640x480 frame is too small for QR beyond about 1 m.
+
 ## Tests
 
 ```powershell
