@@ -46,7 +46,7 @@ The station waits for a worker's QR card, shows who it belongs to, then checks t
 rule in CLAUDE.md §3: approved once 12 of the newest 15 observations are `mask_proper` (confidence ≥ 0.7)
 and the newest 5 all are. An attempt that is not approved within 30 observations (about 3 s) fails and the
 screen says why; three failed attempts reject the check. The rule lives in `src/decision/engine.py`
-(`Rules` holds the numbers) and has unit tests. Results are not saved yet: the API and database come later.
+(`Rules` holds the numbers) and has unit tests. Finished checks are sent to the API (see below).
 
 Cards are looked up in `data/workers.csv` (personal data, not committed). Copy the format from
 `data/workers.example.csv`: `badge_no,name,department,photo`, where `photo` is a reference photo path
@@ -56,6 +56,23 @@ Print one card per worker with:
 ```powershell
 python scripts/make_qr_cards.py --workers data/workers.csv --sizes 15 --markers qr --out data/qr/worker_cards.pdf
 ```
+
+## Database and API
+
+Each finished check (who, when, decision, reason, snapshot) is saved to PostgreSQL through a FastAPI
+service. Start the database in Docker (host port 5433), copy the worker list in, and run the API:
+
+```powershell
+docker compose up -d
+python -m api.import_workers data/workers.csv   # again whenever workers.csv changes
+python -m api                                   # http://127.0.0.1:8000, docs at /docs
+```
+
+Then start the station as usual; it posts each check to `--api` (default `http://127.0.0.1:8000`,
+`--api none` turns saving off). Snapshots go to `snapshots/<date>/<check id>.jpg` (not committed). If the
+API is down, the check is kept in `snapshots/unsent/` instead of being lost. Endpoints: `POST /checks`,
+`GET /checks`, `PATCH /checks/{id}/review`, `GET /alerts`. A worker with three rejected checks in a row
+gets an alert. Change the connection with `SAFESIGHT_DB_URL`.
 
 ## Record own training data
 

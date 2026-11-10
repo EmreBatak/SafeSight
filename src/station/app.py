@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
+from station.reporter import Reporter
 from station.ui.main_window import MainWindow
 from station.worker import CameraWorker
 from station.workers import load_workers
@@ -38,6 +39,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--width", type=int, default=1280, help="requested webcam width (default: 1280)")
     parser.add_argument("--height", type=int, default=720, help="requested webcam height (default: 720)")
+    parser.add_argument(
+        "--api", default="http://127.0.0.1:8000", help="API that stores checks; 'none' = do not save (default: http://127.0.0.1:8000)"
+    )
+    parser.add_argument("--station", default="Giriş A", help="station name saved with each check (default: Giriş A)")
     return parser.parse_args(argv)
 
 
@@ -49,6 +54,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Çalışan listesi bulunamadı: {args.workers} - her kart 'tanınmadı' görünecek.", file=sys.stderr)
         workers = {}
     app = QApplication(sys.argv[:1])
+    reporter = None
+    if args.api.lower() != "none":
+        reporter = Reporter(args.api, args.station, ROOT / "snapshots" / "unsent")
 
     worker = CameraWorker(
         source=args.source,
@@ -58,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         workers=workers,
         width=args.width,
         height=args.height,
+        reporter=reporter,
     )
     window = MainWindow(worker)
     if args.fullscreen:
