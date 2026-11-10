@@ -164,6 +164,13 @@ alerts   (id, worker_id, check_id, type, created_at, acknowledged)
 **API (karar):** `POST /checks`, `PATCH /checks/{id}/review` (inceleme sonucu), `GET /stats`, kamera görüntüsü için bir MJPEG stream.
 Panelin ihtiyaç duyacağı ek uçlar (`GET /checks`, `GET /alerts`) öneri.
 
+**Uygulama durumu (Kasım 2026):** PostgreSQL 16 Docker'da (`docker-compose.yml`, host portu **5433**; 5432 yerel kurulumlarla çakışabiliyor). API `src/api/`'de (FastAPI + SQLAlchemy), `python -m api` ile çalışır; tablolar açılışta oluşturuluyor, migration yok. Yazılan uçlar: `POST /checks` (form + fotoğraf), `GET /checks`, `PATCH /checks/{id}/review`, `GET /alerts`. Henüz yok: `GET /stats`, MJPEG stream, 7 gün sonra fotoğraf silme, erişim logu. İşçiler `python -m api.import_workers data/workers.csv` ile CSV'den aktarılıyor. İstasyon her biten kontrolü fotoğrafıyla gönderiyor; API'ye ulaşamazsa `snapshots/unsent/`'e yazıyor (tekrar gönderme yok).
+Uygularken verilen ve ekipçe onaylanması gereken seçimler:
+- Bilinmeyen `badge_no` ile gelen kontrol reddediliyor (404); istasyon ve veritabanı aynı işçi listesini kullanmalı.
+- İstasyon kaydı yoksa API ilk kontrolde ismiyle oluşturuyor (varsayılan `Giriş A`).
+- Uyarı, üst üste her 3. `REJECTED`'te yazılıyor (3., 6., …).
+- Fotoğraflar her kontrolde (onaylananlar dahil) saklanıyor.
+
 ## 6. Dataset planı (karar)
 
 ### 6.1 İlk eğitim: public veri

@@ -86,6 +86,7 @@ class MainWindow(QMainWindow):
         worker.view_changed.connect(self.show_view)
         worker.status.connect(self.show_message)
         worker.failed.connect(self.show_failure)
+        worker.record_status.connect(lambda text: self.statusBar().showMessage(text, 8000))
 
     def _build_worker_card(self) -> QFrame:
         self.card = QFrame()

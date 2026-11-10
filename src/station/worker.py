@@ -13,6 +13,7 @@ from PySide6.QtGui import QImage
 
 from decision import Engine, Rules, State, observe
 from decision.engine import IMPROPER, NO_MASK, PROPER
+from station.reporter import Reporter
 from station.ui.messages import View
 
 BOX_COLORS = {PROPER: (60, 160, 40), IMPROPER: (20, 140, 230), NO_MASK: (50, 50, 220)}  # BGR
@@ -62,6 +63,7 @@ class CameraWorker(QThread):
     frame_ready = Signal(QImage, float)  # annotated frame, smoothed FPS
     view_changed = Signal(object)  # station.ui.messages.View
     status = Signal(str)
+    record_status = Signal(str)  # whether the finished check reached the API
     failed = Signal(str)
 
     def __init__(
@@ -74,6 +76,7 @@ class CameraWorker(QThread):
         rules: Rules = Rules(),
         width: int = 1280,
         height: int = 720,
+        reporter: Reporter | None = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -85,6 +88,7 @@ class CameraWorker(QThread):
         self.rules = rules
         self.width = width
         self.height = height
+        self.reporter = reporter  # None: checks are only shown, not saved
 
     def run(self) -> None:
         self.status.emit("Model yükleniyor…")
@@ -148,6 +152,9 @@ class CameraWorker(QThread):
                         detections = [(result.names[int(c)], float(p)) for c, p in zip(result.boxes.cls, result.boxes.conf)]
                         seen = observe(detections, self.rules.min_conf)
                         engine.frame(seen, now)
+                        if engine.result is not None and self.reporter is not None:
+                            # the raw frame at the decision is the snapshot the reviewer sees
+                            self.reporter.send(engine.result, frame)
 
                 self.view_changed.emit(
                     View(
