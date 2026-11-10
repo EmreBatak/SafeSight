@@ -38,6 +38,24 @@ To keep the laptop cool, the model runs at most 10 times a second; change it wit
 F11 toggles full screen, Esc leaves it.
 By default it loads the trained mask model `models/mask_n95_v3.pt` (not committed;
 get it with `gh release download model-v3 -D models`).
+`--source http://<phone-ip>:8080/video` uses a phone running the IP Webcam app as the camera.
+
+### Check flow
+
+The station waits for a worker's QR card, shows who it belongs to, then checks the mask with the
+rule in CLAUDE.md §3: approved once 12 of the newest 15 observations are `mask_proper` (confidence ≥ 0.7)
+and the newest 5 all are. An attempt that is not approved within 30 observations (about 3 s) fails and the
+screen says why; three failed attempts reject the check. The rule lives in `src/decision/engine.py`
+(`Rules` holds the numbers) and has unit tests. Results are not saved yet: the API and database come later.
+
+Cards are looked up in `data/workers.csv` (personal data, not committed). Copy the format from
+`data/workers.example.csv`: `badge_no,name,department,photo`, where `photo` is a reference photo path
+relative to the CSV, for example `workers/SS-0001.jpg` in `data/workers/`. Excel's semicolon CSV works too.
+Print one card per worker with:
+
+```powershell
+python scripts/make_qr_cards.py --workers data/workers.csv --sizes 15 --markers qr --out data/qr/worker_cards.pdf
+```
 
 ## Record own training data
 

@@ -7,12 +7,19 @@ import time
 os.environ.setdefault("OMP_WAIT_POLICY", "PASSIVE")
 
 import cv2
+import numpy as np
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QImage
 
+from decision import Engine, Rules, State, observe
+from decision.engine import IMPROPER, NO_MASK, PROPER
+from station.ui.messages import View
 
-def open_source(source: int | str) -> cv2.VideoCapture | None:
-    """Opens a webcam by index, or a video file by path. Returns None if nothing opens."""
+BOX_COLORS = {PROPER: (60, 160, 40), IMPROPER: (20, 140, 230), NO_MASK: (50, 50, 220)}  # BGR
+
+
+def open_source(source: int | str, width: int = 1280, height: int = 720) -> cv2.VideoCapture | None:
+    """Opens a webcam by index, or a video file or stream URL. Returns None if nothing opens."""
     if isinstance(source, str):
         cap = cv2.VideoCapture(source)
         return cap if cap.isOpened() else None
@@ -23,18 +30,37 @@ def open_source(source: int | str) -> cv2.VideoCapture | None:
     for backend in backends:
         cap = cv2.VideoCapture(source, backend)
         if cap.isOpened():
+            # Webcams default to 640x480, where a QR card is unreadable beyond about 1 m.
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             return cap
         cap.release()
     return None
 
 
-class CameraWorker(QThread):
-    """Reads the camera (or a video file) and runs the model off the UI thread.
+def draw_boxes(frame: np.ndarray, result, min_conf: float) -> None:
+    for box, cls, conf in zip(result.boxes.xyxy.tolist(), result.boxes.cls.tolist(), result.boxes.conf.tolist()):
+        if conf < min_conf:
+            continue
+        name = result.names[int(cls)]
+        color = BOX_COLORS.get(name, (200, 200, 200))
+        x1, y1, x2, y2 = map(int, box)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 3)
+        label = f"{name} {conf:.2f}"
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+        cv2.rectangle(frame, (x1, y1 - th - 10), (x1 + tw + 8, y1), color, -1)
+        cv2.putText(frame, label, (x1 + 4, y1 - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-    Emits annotated frames as QImage so the UI only has to display them.
+
+class CameraWorker(QThread):
+    """Runs the camera, QR reading, the model and the decision engine off the UI thread.
+
+    While the station is idle only the QR detector runs. Once a card is read, the mask model runs
+    on every frame and feeds the engine. Each frame the UI gets the image and a View to show.
     """
 
     frame_ready = Signal(QImage, float)  # annotated frame, smoothed FPS
+    view_changed = Signal(object)  # station.ui.messages.View
     status = Signal(str)
     failed = Signal(str)
 
@@ -44,6 +70,10 @@ class CameraWorker(QThread):
         model_path: str,
         conf: float,
         max_fps: float = 10.0,
+        workers: dict | None = None,
+        rules: Rules = Rules(),
+        width: int = 1280,
+        height: int = 720,
         parent=None,
     ):
         super().__init__(parent)
@@ -51,6 +81,10 @@ class CameraWorker(QThread):
         self.model_path = model_path
         self.conf = conf
         self.max_fps = max_fps
+        self.workers = workers or {}
+        self.rules = rules
+        self.width = width
+        self.height = height
 
     def run(self) -> None:
         self.status.emit("Model yükleniyor…")
@@ -64,7 +98,7 @@ class CameraWorker(QThread):
             return
 
         self.status.emit("Kamera açılıyor…")
-        cap = open_source(self.source)
+        cap = open_source(self.source, self.width, self.height)
         if cap is None:
             if isinstance(self.source, str):
                 self.failed.emit(f"Video açılamadı: {self.source}")
@@ -72,7 +106,9 @@ class CameraWorker(QThread):
                 self.failed.emit(f"Kamera açılamadı (index {self.source}).")
             return
 
-        is_file = isinstance(self.source, str)
+        engine = Engine(self.rules)
+        qr = cv2.QRCodeDetectorAruco()  # read more cards and ran faster than QRCodeDetector in the QR trial
+        is_file = isinstance(self.source, str) and "://" not in self.source
         # The decision rule needs ~15 observations, not every webcam frame, so the
         # model runs at most max_fps times a second and the thread sleeps in between.
         interval = 1.0 / self.max_fps if self.max_fps > 0 else 0.0
@@ -94,13 +130,43 @@ class CameraWorker(QThread):
                     self.failed.emit("Kameradan görüntü alınamadı.")
                     break
 
-                result = model.predict(frame, conf=self.conf, verbose=False)[0]
-                annotated = result.plot()
+                now = time.monotonic()
+                engine.tick(now)
+                annotated = frame.copy()
+                seen = ""
+                if engine.state is State.IDLE:
+                    text, points, _ = qr.detectAndDecode(frame)
+                    if text:
+                        engine.card(text, self.workers.get(text), now)
+                        if points is not None:
+                            cv2.polylines(annotated, [np.int32(points).reshape(-1, 2)], True, (60, 160, 40), 4)
+                elif engine.state is not State.UNKNOWN_CARD:
+                    # agnostic NMS: one box per face, so two classes on one face is not two people
+                    result = model.predict(frame, conf=self.conf, agnostic_nms=True, verbose=False)[0]
+                    draw_boxes(annotated, result, self.conf)
+                    if engine.state is State.SCANNING:
+                        detections = [(result.names[int(c)], float(p)) for c, p in zip(result.boxes.cls, result.boxes.conf)]
+                        seen = observe(detections, self.rules.min_conf)
+                        engine.frame(seen, now)
 
-                now = time.perf_counter()
-                instant = 1.0 / max(now - last, 1e-6)
+                self.view_changed.emit(
+                    View(
+                        state=engine.state,
+                        worker=engine.worker,
+                        attempt=engine.attempt,
+                        attempts=self.rules.attempts,
+                        proper=engine.proper_count,
+                        window=self.rules.window,
+                        reason=engine.reason,
+                        last_seen=seen,
+                        result=engine.result,
+                    )
+                )
+
+                now_pc = time.perf_counter()
+                instant = 1.0 / max(now_pc - last, 1e-6)
                 fps = instant if fps == 0.0 else 0.9 * fps + 0.1 * instant
-                last = now
+                last = now_pc
 
                 rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
                 h, w, ch = rgb.shape

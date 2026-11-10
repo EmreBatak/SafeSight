@@ -73,6 +73,14 @@ YOLO modeli 3 sınıf öğrenir. Hepsi toz maskesi için tanımlıdır.
 5. **En fazla 3 deneme** (ayarlanabilir). Hepsi başarısızsa → `REJECTED`, fotoğraf çekilir, kayıt panele `pending` olarak düşer.
 6. Aynı işçi **üst üste 3 kez `REJECTED`** alırsa `alerts` tablosuna uyarı yazılır.
 
+**Uygulama durumu (Kasım 2026):** Kural ve akış `src/decision/engine.py`'de yazıldı ve birim testleri var. İstasyon QR'ı `cv2.QRCodeDetectorAruco` ile okuyor ve işçiyi geçici olarak `data/workers.csv`'den buluyor; bu dosya git'e girmiyor, veritabanı gelince kalkacak. Ekran taslağa göre yapıldı: kamera, işçi kartı ve referans fotoğraf, durum mesajı, gözlem çubuğu ve deneme noktaları. Henüz yok: ByteTrack (`lap` paketi kurulu değil; tek kişi kuralı yüzünden şimdilik gerek görülmedi), fotoğraf çekme, kaydı saklama ve uyarı (6. madde), API ve panel.
+Uygularken verilen ve ekipçe onaylanması gereken seçimler:
+- Bir deneme **30 gözlemde** (10 FPS'te yaklaşık 3 sn) onaylanmazsa başarısız sayılıyor. Aşağıdaki "10 sn zaman aşımı" önerisinin yerine geçti; onaylanmazsa deneme hiç bitmiyordu.
+- Başarısız denemeden sonra mesaj **3 sn**, sonuç ekranı **4 sn** kalıyor.
+- Başarısız denemenin nedeni son 15 gözlemde en sık görülen sorun; eşitlikte sıra `multiple_people` > `no_mask` > `improper` > `no_face`.
+- Model sınıftan bağımsız NMS ile çalışıyor (`agnostic_nms`); yoksa aynı yüze iki sınıftan kutu düşüp "iki kişi" sayılabiliyordu.
+- Bütün sayılar `Rules`'ta; ayrı bir ayar dosyası henüz yok.
+
 Öneriler (henüz konuşulmadı):
 
 - Bir denemede 10 sn içinde karar çıkmazsa başarısız say (reason: `timeout`).

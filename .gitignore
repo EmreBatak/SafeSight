@@ -42,3 +42,7 @@ Thumbs.db
 
 # QR cards and trial results
 data/qr/
+
+# Worker list and reference photos (personal data)
+data/workers.csv
+data/workers/

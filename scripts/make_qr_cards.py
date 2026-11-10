@@ -10,9 +10,11 @@ Print the PDF at 100% (actual size), not "fit to page"; the 10 cm line on each p
 
 Usage:
     python scripts/make_qr_cards.py --ids SS-0001 --sizes 5 7 10 15 --out data/qr/cards.pdf
+    python scripts/make_qr_cards.py --workers data/workers.csv --sizes 15 --markers qr   # one card per worker
 """
 
 import argparse
+import csv
 import re
 from pathlib import Path
 
@@ -80,12 +82,18 @@ def card_page(card: np.ndarray, label: str, paper: str, dpi: int) -> Image.Image
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ids", nargs="+", default=["SS-0001"], help="worker ids (QR text; the number is the ArUco id)")
+    parser.add_argument("--workers", type=Path, help="take the ids from the badge_no column of this CSV instead")
     parser.add_argument("--sizes", nargs="+", type=float, default=[5, 7, 10, 15], help="symbol widths in cm")
     parser.add_argument("--markers", nargs="+", choices=["qr", "aruco"], default=["qr", "aruco"])
     parser.add_argument("--paper", choices=sorted(PAPER_CM), default="A4")
     parser.add_argument("--dpi", type=int, default=300)
     parser.add_argument("--out", type=Path, default=Path("data/qr/cards.pdf"))
     args = parser.parse_args()
+
+    if args.workers:
+        text = args.workers.read_text(encoding="utf-8-sig")
+        dialect = csv.Sniffer().sniff(text.splitlines()[0], delimiters=",;")
+        args.ids = [row["badge_no"].strip() for row in csv.DictReader(text.splitlines(), dialect=dialect) if row["badge_no"].strip()]
 
     printable_cm = PAPER_CM[args.paper][0] - 2 * MARGIN_CM
     pages = []
