@@ -74,6 +74,19 @@ API is down, the check is kept in `snapshots/unsent/` instead of being lost. End
 `GET /checks`, `PATCH /checks/{id}/review`, `GET /alerts`. A worker with three rejected checks in a row
 gets an alert. Change the connection with `SAFESIGHT_DB_URL`.
 
+## Helmet model
+
+A separate YOLO11n detects hard hats with two classes, `helmet` and `no_helmet` (box on the head; CLAUDE.md §3).
+It is trained on [SHWD](https://github.com/njvisionpower/Safety-Helmet-Wearing-Dataset) (7,581 images, PASCAL VOC).
+Download `VOC2028.zip` from the Google Drive link in that README into `data/raw/shwd/`, unzip it, then:
+
+```powershell
+python scripts/convert_shwd_voc_to_yolo.py --src data/raw/shwd/VOC2028 --out data/helmet --yaml data/helmet.yaml
+yolo detect train model=yolo11n.pt data=<absolute path>/data/helmet.yaml epochs=30 patience=10 imgsz=640 device=mps name=helmet_v1
+```
+
+Try it on the webcam with `yolo predict model=models/helmet_v1.pt source=0 show=True`. The station does not use it yet.
+
 ## Record own training data
 
 One person per run, and only people who gave written consent (CLAUDE.md §6.2):

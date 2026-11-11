@@ -1,0 +1,7 @@
+# SHWD helmet dataset, made by scripts/convert_shwd_voc_to_yolo.py
+# paths are relative to this file's folder; pass this file's absolute path to YOLO
+train: helmet/images/train
+val: helmet/images/val
+names:
+  0: helmet
+  1: no_helmet
