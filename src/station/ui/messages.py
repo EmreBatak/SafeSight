@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from decision import Check, State
-from decision.engine import IMPROPER, MULTIPLE, NO_FACE, NO_MASK
+from decision.engine import IMPROPER, MULTIPLE, NO_FACE, NO_HELMET, NO_MASK
 
 
 @dataclass(frozen=True)
@@ -20,15 +20,17 @@ class View:
     reason: str = ""  # why the last attempt failed
     last_seen: str = ""  # the newest observation, for hints while scanning
     result: Check | None = None
+    helmet_check: bool = False  # whether the station also checks the hard hat
 
 
 RETRY = {
     IMPROPER: ("Maskeni düzelt", "Maske burnunu ve ağzını tam kapatmalı."),
     NO_MASK: ("Maskeni tak", "Geçmeden önce toz maskeni tak."),
+    NO_HELMET: ("Kaskını tak", "Geçmeden önce baretini tak."),
     NO_FACE: ("Yüzün görünmüyor", "Kameraya dön ve birkaç saniye bekle."),
     MULTIPLE: ("Tek kişi olmalı", "Kamera önünde yalnızca sen dur."),
 }
-SCAN_HINT = {NO_FACE: RETRY[NO_FACE][1], MULTIPLE: RETRY[MULTIPLE][1]}
+SCAN_HINT = {NO_FACE: RETRY[NO_FACE][1], MULTIPLE: RETRY[MULTIPLE][1], NO_HELMET: RETRY[NO_HELMET][1]}
 
 
 def message(view: View) -> tuple[str, str, str]:
@@ -38,9 +40,11 @@ def message(view: View) -> tuple[str, str, str]:
     if view.state is State.UNKNOWN_CARD:
         return "warning", "Kart tanınmadı", "Bu kart kayıtlı değil. İSG sorumlusuna başvur."
     if view.state is State.SCANNING:
-        return "accent", "Maske kontrol ediliyor…", SCAN_HINT.get(view.last_seen, "Kameraya bak ve birkaç saniye bekle.")
+        title = "Maske ve kask kontrol ediliyor…" if view.helmet_check else "Maske kontrol ediliyor…"
+        return "accent", title, SCAN_HINT.get(view.last_seen, "Kameraya bak ve birkaç saniye bekle.")
     if view.state is State.RETRY:
         return ("warning", *RETRY.get(view.reason, RETRY[IMPROPER]))
     if view.state is State.APPROVED:
-        return "success", "Geçebilirsin", "Maske doğru takılı. İyi çalışmalar."
+        worn = "Maske ve kask doğru takılı." if view.helmet_check else "Maske doğru takılı."
+        return "success", "Geçebilirsin", f"{worn} İyi çalışmalar."
     return "danger", "Geçiş onaylanmadı", "Kaydın İSG sorumlusuna iletildi. Sorumluyla görüş."

@@ -104,3 +104,48 @@ def test_station_is_free_again_after_the_result():
 def test_rules_must_leave_room_for_a_full_window():
     with pytest.raises(ValueError):
         Engine(Rules(window=15, max_observations=10))
+
+
+# Hard hat check (CLAUDE.md §3): a frame counts only if the mask is proper and one head wears a helmet.
+from decision.engine import NO_HELMET  # noqa: E402
+
+MASK_OK = [("mask_proper", 0.9)]
+
+
+def test_helmet_check_off_ignores_heads():
+    assert observe(MASK_OK, 0.7) == PROPER
+    assert observe(MASK_OK, 0.7, None) == PROPER
+
+
+def test_proper_mask_with_helmet_is_proper():
+    assert observe(MASK_OK, 0.7, [("helmet", 0.8)]) == PROPER
+
+
+def test_bare_or_missing_head_is_no_helmet():
+    assert observe(MASK_OK, 0.7, [("no_helmet", 0.9)]) == NO_HELMET
+    assert observe(MASK_OK, 0.7, []) == NO_HELMET
+    assert observe(MASK_OK, 0.7, [("helmet", 0.5)]) == NO_HELMET  # below the threshold
+
+
+def test_helmet_threshold_can_differ_from_mask_threshold():
+    assert observe(MASK_OK, 0.7, [("helmet", 0.5)], helmet_min_conf=0.4) == PROPER
+
+
+def test_two_heads_are_multiple_people():
+    assert observe(MASK_OK, 0.7, [("helmet", 0.9), ("no_helmet", 0.8)]) == MULTIPLE
+
+
+def test_mask_problems_come_before_the_helmet():
+    assert observe([("no_mask", 0.9)], 0.7, [("no_helmet", 0.9)]) == NO_MASK
+    assert observe([("mask_improper", 0.9)], 0.7, [("helmet", 0.9)]) == IMPROPER
+    assert observe([], 0.7, [("helmet", 0.9)]) == NO_FACE
+
+
+def test_check_without_helmet_is_rejected_as_no_helmet():
+    rules = Rules()
+    engine = started(rules)
+    for attempt in range(rules.attempts):
+        engine.tick(now=attempt * 100.0)  # leaves the retry screen before attempts 2 and 3
+        feed(engine, NO_HELMET, rules.max_observations, t0=attempt * 100.0)
+    assert engine.state is State.REJECTED
+    assert engine.result.reason == "no_helmet"

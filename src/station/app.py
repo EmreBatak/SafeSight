@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
+from station.reporter import Reporter
 from station.ui.main_window import MainWindow
 from station.worker import CameraWorker
 from station.workers import load_workers
@@ -13,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL = ROOT / "models" / "mask_n95_v3.pt"
 # Card -> worker list; personal data, not committed (see data/workers.example.csv).
 DEFAULT_WORKERS = ROOT / "data" / "workers.csv"
+# 2-class hard hat model (helmet, no_helmet); release helmet-v1, see README.
+DEFAULT_HELMET_MODEL = ROOT / "models" / "helmet_v1.pt"
 
 
 def parse_source(value: str) -> int | str:
@@ -28,6 +31,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--model", default=str(DEFAULT_MODEL), help="YOLO weights (default: models/mask_n95_v3.pt)"
     )
+    parser.add_argument(
+        "--helmet-model",
+        default=str(DEFAULT_HELMET_MODEL),
+        help="hard hat weights; 'none' = check the mask only (default: models/helmet_v1.pt)",
+    )
     parser.add_argument("--conf", type=float, default=0.5, help="minimum detection confidence to draw")
     parser.add_argument("--fullscreen", action="store_true", help="start in full screen (kiosk)")
     parser.add_argument(
@@ -38,6 +46,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--width", type=int, default=1280, help="requested webcam width (default: 1280)")
     parser.add_argument("--height", type=int, default=720, help="requested webcam height (default: 720)")
+    parser.add_argument(
+        "--api", default="http://127.0.0.1:8000", help="API that stores checks; 'none' = do not save (default: http://127.0.0.1:8000)"
+    )
+    parser.add_argument("--station", default="Giriş A", help="station name saved with each check (default: Giriş A)")
     return parser.parse_args(argv)
 
 
@@ -49,6 +61,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Çalışan listesi bulunamadı: {args.workers} - her kart 'tanınmadı' görünecek.", file=sys.stderr)
         workers = {}
     app = QApplication(sys.argv[:1])
+    helmet_model = None if args.helmet_model.lower() == "none" else args.helmet_model
+    if helmet_model and not Path(helmet_model).exists():
+        print(f"Kask modeli bulunamadı: {helmet_model} - sadece maske kontrol edilecek.", file=sys.stderr)
+        helmet_model = None
+    reporter = None
+    if args.api.lower() != "none":
+        reporter = Reporter(args.api, args.station, ROOT / "snapshots" / "unsent")
 
     worker = CameraWorker(
         source=args.source,
@@ -58,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
         workers=workers,
         width=args.width,
         height=args.height,
+        reporter=reporter,
+        helmet_model_path=helmet_model,
     )
     window = MainWindow(worker)
     if args.fullscreen:

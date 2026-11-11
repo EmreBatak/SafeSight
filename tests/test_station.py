@@ -41,3 +41,13 @@ def test_scanning_hint_follows_the_latest_frame():
 def test_result_screens_use_the_result_tones():
     assert message(View(State.APPROVED))[0] == "success"
     assert message(View(State.REJECTED))[0] == "danger"
+
+
+def test_helmet_wording():
+    from decision.engine import NO_HELMET
+
+    assert message(View(State.RETRY, reason=NO_HELMET))[1] == "Kaskını tak"
+    assert "Kaskını tak" not in message(View(State.SCANNING))[1]
+    assert message(View(State.SCANNING, helmet_check=True))[1] == "Maske ve kask kontrol ediliyor…"
+    assert "kask" in message(View(State.APPROVED, helmet_check=True))[2]
+    assert "kask" not in message(View(State.APPROVED))[2]

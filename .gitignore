@@ -46,3 +46,6 @@ data/qr/
 # Worker list and reference photos (personal data)
 data/workers.csv
 data/workers/
+
+# Helmet dataset (SHWD converted to YOLO)
+data/helmet/

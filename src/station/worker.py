@@ -12,10 +12,17 @@ from PySide6.QtCore import QThread, Signal
 from PySide6.QtGui import QImage
 
 from decision import Engine, Rules, State, observe
-from decision.engine import IMPROPER, NO_MASK, PROPER
+from decision.engine import HELMET, IMPROPER, NO_HELMET, NO_MASK, PROPER
+from station.reporter import Reporter
 from station.ui.messages import View
 
-BOX_COLORS = {PROPER: (60, 160, 40), IMPROPER: (20, 140, 230), NO_MASK: (50, 50, 220)}  # BGR
+BOX_COLORS = {  # BGR
+    PROPER: (60, 160, 40),
+    IMPROPER: (20, 140, 230),
+    NO_MASK: (50, 50, 220),
+    HELMET: (200, 140, 30),
+    NO_HELMET: (140, 40, 200),
+}
 
 
 def open_source(source: int | str, width: int = 1280, height: int = 720) -> cv2.VideoCapture | None:
@@ -52,6 +59,10 @@ def draw_boxes(frame: np.ndarray, result, min_conf: float) -> None:
         cv2.putText(frame, label, (x1 + 4, y1 - 6), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
 
+def detections_of(result) -> list[tuple[str, float]]:
+    return [(result.names[int(c)], float(p)) for c, p in zip(result.boxes.cls, result.boxes.conf)]
+
+
 class CameraWorker(QThread):
     """Runs the camera, QR reading, the model and the decision engine off the UI thread.
 
@@ -62,6 +73,7 @@ class CameraWorker(QThread):
     frame_ready = Signal(QImage, float)  # annotated frame, smoothed FPS
     view_changed = Signal(object)  # station.ui.messages.View
     status = Signal(str)
+    record_status = Signal(str)  # whether the finished check reached the API
     failed = Signal(str)
 
     def __init__(
@@ -74,6 +86,8 @@ class CameraWorker(QThread):
         rules: Rules = Rules(),
         width: int = 1280,
         height: int = 720,
+        reporter: Reporter | None = None,
+        helmet_model_path: str | None = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -85,6 +99,8 @@ class CameraWorker(QThread):
         self.rules = rules
         self.width = width
         self.height = height
+        self.reporter = reporter  # None: checks are only shown, not saved
+        self.helmet_model_path = helmet_model_path  # None: the hard hat is not checked
 
     def run(self) -> None:
         self.status.emit("Model yükleniyor…")
@@ -93,6 +109,7 @@ class CameraWorker(QThread):
 
         try:
             model = YOLO(self.model_path)
+            helmet_model = YOLO(self.helmet_model_path) if self.helmet_model_path else None
         except Exception as exc:  # bad path, failed download, corrupt weights
             self.failed.emit(f"Model yüklenemedi: {exc}")
             return
@@ -144,10 +161,17 @@ class CameraWorker(QThread):
                     # agnostic NMS: one box per face, so two classes on one face is not two people
                     result = model.predict(frame, conf=self.conf, agnostic_nms=True, verbose=False)[0]
                     draw_boxes(annotated, result, self.conf)
+                    helmet = None
+                    if helmet_model is not None:
+                        head = helmet_model.predict(frame, conf=self.conf, agnostic_nms=True, verbose=False)[0]
+                        draw_boxes(annotated, head, self.conf)
+                        helmet = detections_of(head)
                     if engine.state is State.SCANNING:
-                        detections = [(result.names[int(c)], float(p)) for c, p in zip(result.boxes.cls, result.boxes.conf)]
-                        seen = observe(detections, self.rules.min_conf)
+                        seen = observe(detections_of(result), self.rules.min_conf, helmet, self.rules.helmet_min_conf)
                         engine.frame(seen, now)
+                        if engine.result is not None and self.reporter is not None:
+                            # the raw frame at the decision is the snapshot the reviewer sees
+                            self.reporter.send(engine.result, frame)
 
                 self.view_changed.emit(
                     View(
@@ -160,6 +184,7 @@ class CameraWorker(QThread):
                         reason=engine.reason,
                         last_seen=seen,
                         result=engine.result,
+                        helmet_check=helmet_model is not None,
                     )
                 )
 
