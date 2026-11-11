@@ -74,7 +74,7 @@ Neden ayrı model: maske verilerinde kask etiketi yok. Tek modelde birleştirinc
 3. **Fail-closed:** emin olunamayan her durum başarısız denemedir. Kesin `REJECTED` olunca insan incelemesine gider.
 4. **Tek kişi kuralı:** kadrajda birden fazla kişi varsa başarısız (reason: `multiple_people`).
 5. Yüz bulunamazsa başarısız (reason: `no_face`).
-6. Öneri (uygulanmadı): bir gözlem ancak maske `mask_proper` **ve** kask `helmet` ise doğru sayılır; yukarıdaki pencere kuralı bu birleşik gözleme uygulanır. Kask yoksa reason: `no_helmet`, ekran "KASKINI TAK" der.
+6. Kask (uygulandı, ekipçe onaylanmalı): bir gözlem ancak maske `mask_proper` **ve** kask modeli tam bir baş görüp o başta `helmet` (güven ≥ `helmet_min_conf`, varsayılan 0.7) bulursa doğru sayılır; yukarıdaki pencere kuralı bu birleşik gözleme uygulanır. Önce maske bakılır: maske sorunu varsa neden maske sorunudur. Baş yoksa ya da baş açıksa `no_helmet` (fail-closed), iki baş varsa `multiple_people`. Ekran "KASKINI TAK" der.
 
 **Kontrol akışı (istasyon):**
 
@@ -85,11 +85,11 @@ Neden ayrı model: maske verilerinde kask etiketi yok. Tek modelde birleştirinc
 5. **En fazla 3 deneme** (ayarlanabilir). Hepsi başarısızsa → `REJECTED`, fotoğraf çekilir, kayıt panele `pending` olarak düşer.
 6. Aynı işçi **üst üste 3 kez `REJECTED`** alırsa `alerts` tablosuna uyarı yazılır.
 
-**Uygulama durumu (Kasım 2026):** Kural ve akış `src/decision/engine.py`'de yazıldı ve birim testleri var. İstasyon QR'ı `cv2.QRCodeDetectorAruco` ile okuyor ve işçiyi geçici olarak `data/workers.csv`'den buluyor; bu dosya git'e girmiyor, veritabanı gelince kalkacak. Ekran taslağa göre yapıldı: kamera, işçi kartı ve referans fotoğraf, durum mesajı, gözlem çubuğu ve deneme noktaları. Henüz yok: kask kontrolü, ByteTrack (`lap` paketi kurulu değil; tek kişi kuralı yüzünden şimdilik gerek görülmedi), fotoğraf çekme, kaydı saklama ve uyarı (6. madde), API ve panel.
+**Uygulama durumu (Kasım 2026):** Kural ve akış `src/decision/engine.py`'de yazıldı ve birim testleri var. İstasyon QR'ı `cv2.QRCodeDetectorAruco` ile okuyor ve işçiyi geçici olarak `data/workers.csv`'den buluyor; bu dosya git'e girmiyor, veritabanı gelince kalkacak. Ekran taslağa göre yapıldı: kamera, işçi kartı ve referans fotoğraf, durum mesajı, gözlem çubuğu ve deneme noktaları. Kask kontrolü eklendi (`--helmet-model`, varsayılan `models/helmet_v1.pt`; dosya yoksa ya da `none` verilirse sadece maske). Henüz yok: ByteTrack (`lap` paketi kurulu değil; tek kişi kuralı yüzünden şimdilik gerek görülmedi), fotoğraf çekme, kaydı saklama ve uyarı (6. madde), API ve panel.
 Uygularken verilen ve ekipçe onaylanması gereken seçimler:
 - Bir deneme **30 gözlemde** (10 FPS'te yaklaşık 3 sn) onaylanmazsa başarısız sayılıyor. Aşağıdaki "10 sn zaman aşımı" önerisinin yerine geçti; onaylanmazsa deneme hiç bitmiyordu.
 - Başarısız denemeden sonra mesaj **3 sn**, sonuç ekranı **4 sn** kalıyor.
-- Başarısız denemenin nedeni son 15 gözlemde en sık görülen sorun; eşitlikte sıra `multiple_people` > `no_mask` > `improper` > `no_face`.
+- Başarısız denemenin nedeni son 15 gözlemde en sık görülen sorun; eşitlikte sıra `multiple_people` > `no_mask` > `improper` > `no_helmet` > `no_face`.
 - Model sınıftan bağımsız NMS ile çalışıyor (`agnostic_nms`); yoksa aynı yüze iki sınıftan kutu düşüp "iki kişi" sayılabiliyordu.
 - Bütün sayılar `Rules`'ta; ayrı bir ayar dosyası henüz yok.
 
@@ -123,7 +123,7 @@ Laptop webcam
 - **Model dosyaları git'e girmez** (`models/`, `*.pt`). İstasyon varsayılan olarak `models/mask_n95_v3.pt` yükler; dosya ekip içinde git dışından paylaşılır. Model sürümleri **GitHub Releases**'te durur (`model-v1`, `model-v2`, `model-v3` …); indirmek için `gh release download model-v3 -D models`.
 
 **İlk eğitim sonucu (v1, Ekim 2026):** YOLO11n, 50 epoch. Val mAP50 0.93 ama val de public veriden ve yanıltıcı (§6.1). `mask_proper` recall 0.66. Webcam'de maskesiz yüzü zaman zaman maske sınıfı diye etiketliyor; `no_mask` verisi sadece 112 küçük Kaggle kırpması, yakın plan maskesiz yüz verisi gerekiyor.
-**Kask modeli v1 (Kasım 2026):** YOLO11n, SHWD, 30 epoch, M4 MPS'te 2,8 saat. SHWD test bölmesinde (1.517 görüntü) P 0.92, R 0.86, mAP50 0.92; `helmet` R 0.85, `no_helmet` R 0.87. Val de SHWD'den, kendi ortamımızı göstermez. Webcam'de tek kişi ve tek kaskla denendi: kask takınca `helmet`, çıkarınca `no_helmet` doğru çıktı. Dosya `models/helmet_v1.pt`. İstasyon henüz kullanmıyor.
+**Kask modeli v1 (Kasım 2026):** YOLO11n, SHWD, 30 epoch, M4 MPS'te 2,8 saat. SHWD test bölmesinde (1.517 görüntü) P 0.92, R 0.86, mAP50 0.92; `helmet` R 0.85, `no_helmet` R 0.87. Val de SHWD'den, kendi ortamımızı göstermez. Webcam'de tek kişi ve tek kaskla denendi: kask takınca `helmet`, çıkarınca `no_helmet` doğru çıktı. Dosya `models/helmet_v1.pt` (release `helmet-v1`). İstasyon varsayılan olarak yüklüyor; iki model birlikte M4 CPU'da kare başına ~37 ms. Kask modeli arkadaki kişilerin başını da görüyor; bu durumda gözlem `multiple_people` olur.
 - **Panel:** Next.js (karar). Streamlit alternatif olarak konuşulmuştu ama Next.js'te kalındı.
 - **İstasyon uygulaması:** Python masaüstü uygulaması, **PySide6** (karar). Kamera + model + takip ayrı bir `QThread`'de; arayüz sadece gösterir. Karar motoru Qt'den bağımsız saf Python. Panel Next.js'te kalır (masaüstüne taşınmaz).
 - Öneri: Next.js'e süre yetmezse yedek plan olarak FastAPI'nin sunduğu basit bir HTML sayfası.
@@ -237,6 +237,12 @@ Kullanılmayanlar ve nedenleri:
 - Etiketleme Roboflow ya da CVAT ile.
 - **Bölme kişiye göredir:** aynı kişi hem train hem test'te olmaz. Veri artırma (augmentation) **bölmeden sonra** ve sadece train'e uygulanır.
 - Public datasetlerde kişi bilgisi yok. O yüzden public veri sadece train/val için kullanılır. **Raporlanan tüm sonuçlar kendi test setimizden gelir.**
+
+**Durum (11 Kasım 2026):** `data/own/` altında (git dışı) 5 kişi, `scripts/capture_webcam.py` ile çekildi. Kask etiketleri `helmet_labels/` klasöründe (baş kutusu kask modelinden, sınıf çekimi yapandan).
+- Emre (96), Yunus (140), Eda (137): kasksız. Kask etiketi sonradan `scripts/add_helmet_labels.py --cls no_helmet` ile eklendi; modelin "kask var" dediği 17 kareye bakıldı, hepsinde kask yok (lamba parlaması, alttan beyaz maske). 3 karede baş bulunamadı, kask etiketi yok.
+- Fatih Kömürcü (334) ve Mustafa Özkaya (232): 6 durumun hepsi (maske doğru / yanlış / yok × kask var / yok), aynı kafede aynı gece.
+- Öneri (onaylanmadı): Mustafa test seti, diğerleri eğitim. İkisi aynı ortamda çekildiği için test sonucu iyimser olur; raporda sınırlılık.
+- Yapılacak: Emre ve Yunus kasklı çekim (6 durum). Eda kasklı çekilemiyor; kask takan kadın örneği yok (sınırlılık). Sonra maske v4 ve kask v2 eğitimi.
 
 Öneriler (henüz konuşulmadı):
 

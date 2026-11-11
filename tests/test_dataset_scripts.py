@@ -50,3 +50,10 @@ def test_one_capture_session_is_one_group():
     b = capture.sample_stem("emre", "20261104120000", 41)
     later = capture.sample_stem("emre", "20261104130000", 0)
     assert build.group_key(a, 100) == build.group_key(b, 100) != build.group_key(later, 100)
+
+
+def test_head_box_is_the_one_around_the_face():
+    face = (40, 40, 60, 60)
+    heads = [(0, 0, 30, 30, 0.9), (30, 20, 70, 70, 0.8), (35, 25, 65, 65, 0.7)]
+    assert capture.pick_head([h[:4] for h in heads], face) == (30, 20, 70, 70)
+    assert capture.pick_head([(0, 0, 30, 30)], face) is None
