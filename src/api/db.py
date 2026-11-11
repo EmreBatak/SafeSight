@@ -47,7 +47,7 @@ class Check(Base):
     ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int] = mapped_column(Integer)
     decision: Mapped[str] = mapped_column(String(16))  # 'APPROVED' | 'REJECTED'
-    reason: Mapped[str] = mapped_column(String(32))  # 'proper' | 'improper' | 'no_mask' | 'no_face' | 'multiple_people'
+    reason: Mapped[str] = mapped_column(String(32))  # 'proper' | 'improper' | 'no_mask' | 'no_helmet' | 'no_face' | 'multiple_people'
     proper_ratio: Mapped[float] = mapped_column(Float)
     snapshot_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     review_status: Mapped[str | None] = mapped_column(String(16), nullable=True)  # NULL | pending | confirmed | overturned

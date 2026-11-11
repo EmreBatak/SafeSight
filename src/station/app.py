@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL = ROOT / "models" / "mask_n95_v3.pt"
 # Card -> worker list; personal data, not committed (see data/workers.example.csv).
 DEFAULT_WORKERS = ROOT / "data" / "workers.csv"
+# 2-class hard hat model (helmet, no_helmet); release helmet-v1, see README.
+DEFAULT_HELMET_MODEL = ROOT / "models" / "helmet_v1.pt"
 
 
 def parse_source(value: str) -> int | str:
@@ -28,6 +30,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--model", default=str(DEFAULT_MODEL), help="YOLO weights (default: models/mask_n95_v3.pt)"
+    )
+    parser.add_argument(
+        "--helmet-model",
+        default=str(DEFAULT_HELMET_MODEL),
+        help="hard hat weights; 'none' = check the mask only (default: models/helmet_v1.pt)",
     )
     parser.add_argument("--conf", type=float, default=0.5, help="minimum detection confidence to draw")
     parser.add_argument("--fullscreen", action="store_true", help="start in full screen (kiosk)")
@@ -54,6 +61,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Çalışan listesi bulunamadı: {args.workers} - her kart 'tanınmadı' görünecek.", file=sys.stderr)
         workers = {}
     app = QApplication(sys.argv[:1])
+    helmet_model = None if args.helmet_model.lower() == "none" else args.helmet_model
+    if helmet_model and not Path(helmet_model).exists():
+        print(f"Kask modeli bulunamadı: {helmet_model} - sadece maske kontrol edilecek.", file=sys.stderr)
+        helmet_model = None
     reporter = None
     if args.api.lower() != "none":
         reporter = Reporter(args.api, args.station, ROOT / "snapshots" / "unsent")
@@ -67,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         width=args.width,
         height=args.height,
         reporter=reporter,
+        helmet_model_path=helmet_model,
     )
     window = MainWindow(worker)
     if args.fullscreen:

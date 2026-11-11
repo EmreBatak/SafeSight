@@ -57,6 +57,10 @@ def test_rejected_check_waits_for_review_and_keeps_snapshot(client):
     assert [c["id"] for c in client.get("/checks", params={"review_status": "pending"}).json()] == [body["id"]]
 
 
+def test_no_helmet_reason_is_accepted(client):
+    assert post_check(client, "REJECTED", "no_helmet").json()["reason"] == "no_helmet"
+
+
 def test_unknown_badge_is_refused(client):
     assert post_check(client, badge="SS-9999").status_code == 404
 

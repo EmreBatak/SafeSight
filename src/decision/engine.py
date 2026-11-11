@@ -17,11 +17,19 @@ from typing import Any
 
 PROPER, IMPROPER, NO_MASK = "mask_proper", "mask_improper", "no_mask"
 NO_FACE, MULTIPLE = "no_face", "multiple_people"
+HELMET, NO_HELMET = "helmet", "no_helmet"  # helmet model classes; NO_HELMET is also a failure reason
 
 # Values for checks.reason in the database (CLAUDE.md §5).
-REASONS = {PROPER: "proper", IMPROPER: "improper", NO_MASK: "no_mask", NO_FACE: "no_face", MULTIPLE: "multiple_people"}
+REASONS = {
+    PROPER: "proper",
+    IMPROPER: "improper",
+    NO_MASK: "no_mask",
+    NO_HELMET: "no_helmet",
+    NO_FACE: "no_face",
+    MULTIPLE: "multiple_people",
+}
 # When failed observations tie, the more actionable reason is shown.
-_REASON_ORDER = [MULTIPLE, NO_MASK, IMPROPER, NO_FACE]
+_REASON_ORDER = [MULTIPLE, NO_MASK, IMPROPER, NO_HELMET, NO_FACE]
 
 
 @dataclass(frozen=True)
@@ -29,21 +37,40 @@ class Rules:
     window: int = 15  # observations the approval looks at
     proper_ratio: float = 0.8  # share of the window that must be mask_proper
     last_proper: int = 5  # the newest observations that must all be mask_proper
-    min_conf: float = 0.7  # detections below this do not count
+    min_conf: float = 0.7  # mask detections below this do not count
+    helmet_min_conf: float = 0.7  # helmet detections below this do not count
     max_observations: int = 30  # an attempt fails if not approved by then (~3 s at 10 FPS)
     attempts: int = 3
     feedback_s: float = 3.0  # how long "fix your mask" shows before the next attempt
     result_s: float = 4.0  # how long the final result shows before the station is free again
 
 
-def observe(detections: list[tuple[str, float]], min_conf: float) -> str:
-    """One frame's detections [(class name, confidence)] -> a class name, no_face or multiple_people."""
+def observe(
+    detections: list[tuple[str, float]],
+    min_conf: float,
+    helmet: list[tuple[str, float]] | None = None,
+    helmet_min_conf: float | None = None,
+) -> str:
+    """One frame's detections [(class name, confidence)] -> one observation.
+
+    The mask decides first: no_face, multiple_people, mask_improper or no_mask. With the helmet check
+    on (`helmet` is the helmet model's detections, not None), a mask_proper frame only stays
+    mask_proper if exactly one confident head is seen and it wears a helmet; a bare or missing head
+    is no_helmet (fail-closed), two heads are multiple_people.
+    """
     counted = [label for label, conf in detections if conf >= min_conf]
     if not counted:
         return NO_FACE
     if len(counted) > 1:
         return MULTIPLE
-    return counted[0]
+    seen = counted[0]
+    if helmet is None or seen != PROPER:
+        return seen
+    threshold = min_conf if helmet_min_conf is None else helmet_min_conf
+    heads = [label for label, conf in helmet if conf >= threshold]
+    if len(heads) > 1:
+        return MULTIPLE
+    return PROPER if heads == [HELMET] else NO_HELMET
 
 
 class State(str, Enum):

@@ -16,3 +16,8 @@ def test_default_source_is_first_webcam():
 
 def test_model_rate_is_limited_by_default():
     assert parse_args([]).max_fps == 10.0
+
+
+def test_helmet_model_is_on_by_default_and_can_be_turned_off():
+    assert parse_args([]).helmet_model.endswith("helmet_v1.pt")
+    assert parse_args(["--helmet-model", "none"]).helmet_model == "none"

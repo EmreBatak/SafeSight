@@ -85,7 +85,10 @@ python scripts/convert_shwd_voc_to_yolo.py --src data/raw/shwd/VOC2028 --out dat
 yolo detect train model=yolo11n.pt data=<absolute path>/data/helmet.yaml epochs=30 patience=10 imgsz=640 device=mps name=helmet_v1
 ```
 
-Try it on the webcam with `yolo predict model=models/helmet_v1.pt source=0 show=True`. The station does not use it yet.
+Try it on the webcam with `yolo predict model=models/helmet_v1.pt source=0 show=True`. Get the trained weights with
+`gh release download helmet-v1 -D models`. The station loads `models/helmet_v1.pt` by default and then approves a
+check only if the mask is proper **and** one head wears a helmet (reason `no_helmet` otherwise). Without the file,
+or with `--helmet-model none`, it checks the mask only.
 
 ## Record own training data
 

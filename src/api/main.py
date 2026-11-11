@@ -17,7 +17,7 @@ from api.db import Alert, Check, Station, Worker, make_sessionmaker
 
 ROOT = Path(__file__).resolve().parents[2]
 DECISIONS = ("APPROVED", "REJECTED")
-REASONS = ("proper", "improper", "no_mask", "no_face", "multiple_people")
+REASONS = ("proper", "improper", "no_mask", "no_helmet", "no_face", "multiple_people")
 ALERT_AFTER = 3  # consecutive REJECTED checks of one worker (CLAUDE.md §3)
 
 
