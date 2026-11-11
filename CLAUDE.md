@@ -14,10 +14,10 @@ Burada "karar" yazan şeyler kesinleşmiştir; "öneri" yazanlar henüz konuşul
 
 ## 1. Proje nedir?
 
-**SafeSight**: Maden sahası girişinde, işçinin **toz maskesini doğru takıp takmadığını** kamerayla kontrol eden bir **kontrol istasyonu** prototipi. Turnike/kapı yok; model karar verir, şüpheli kayıtları **insan inceler** (human-in-the-loop).
+**SafeSight**: Maden sahası girişinde, işçinin **toz maskesini doğru takıp takmadığını** ve **baretini (kask) takıp takmadığını** kamerayla kontrol eden bir **kontrol istasyonu** prototipi. Turnike/kapı yok; model karar verir, şüpheli kayıtları **insan inceler** (human-in-the-loop).
 
-- Her işçinin kendine ait bir QR'ı var (bir kişi, bir QR); QR ekipmanın üstünde durur (yeri açık, bkz. §3). İşçi QR ile tanınır, sonra maskesi taranır.
-- Maske doğruysa kayıt `APPROVED` olur. Değilse ekran hemen "maskeni düzelt" der ve deneme hakkı verir; denemeler bitince kayıt `REJECTED` olur, fotoğrafıyla birlikte panele düşer.
+- Her işçinin kendine ait bir QR'ı var (bir kişi, bir QR); QR ekipmanın üstünde durur (yeri açık, bkz. §3). İşçi QR ile tanınır, sonra maskesi ve kaskı taranır.
+- Maske doğru ve kask takılıysa kayıt `APPROVED` olur. Değilse ekran hemen "maskeni düzelt" / "kaskını tak" der ve deneme hakkı verir; denemeler bitince kayıt `REJECTED` olur, fotoğrafıyla birlikte panele düşer.
 - İş güvenliği sorumlusu panelde reddedilen kayıtları inceler: modelin kararını onaylar ya da düzeltir (model hata yapabilir).
 - **Kimin geldiği görülebilmeli:** Biri işe alınıp yerine başkasını (ekipmanını vererek) gönderebilir. Bu yüzden kontrol fotoğrafı, işçinin kayıtlı referans fotoğrafıyla yan yana gösterilir; karşılaştırmayı insan yapar.
 - **Yaptırım sistemin dışındadır** (karar). Sistem kayıt üretir, insan onaylar; ne yapılacağına şirket kendi prosedürüyle karar verir. Raporda "ceza" değil "inceleme ve geri bildirim" diye çerçevelenir.
@@ -30,6 +30,7 @@ Burada "karar" yazan şeyler kesinleşmiştir; "öneri" yazanlar henüz konuşul
 **Kapsamda:**
 
 - Kullan-at toz maskeleri: **FFP2 / FFP3, N95 tipi**, ventilli ve ventilsiz.
+- **Baret (kask):** takılı mı, değil mi (Kasım 2026'da kapsama alındı). Kaskın doğru oturması (çene kayışı vb.) kapsam dışı.
 - İstasyonda tek kişi, kameraya 1–3 m mesafe.
 - Reddedilen kayıtlar için panelde insan incelemesi.
 
@@ -38,7 +39,8 @@ Burada "karar" yazan şeyler kesinleşmiştir; "öneri" yazanlar henüz konuşul
 - Cerrahi maske, bez maske, bandana. Bunlar tespit hedefi değil.
 - Yarım yüz ve tam yüz (kartuşlu) respiratörler.
 - **Ferdi kurtarıcı.** Belde ya da omuzda taşınan, sadece acil durumda takılan oksijenli kaçış cihazı; istasyonda "takılı mı" diye kontrol edilemez.
-- Maske sızdırmazlık (fit) testi, saha içinde sürekli izleme, kask, yelek ve diğer KKD.
+- Maske sızdırmazlık (fit) testi, saha içinde sürekli izleme ve diğer KKD.
+- **Yelek tespiti.** Madenciler yelek değil madenci gömleği giyer; yelek tespit hedefi değil. Bazı kask veri setlerindeki yelek etiketleri kullanılmaz.
 - Fiziksel turnike/kapı kontrolü.
 - **Otomatik yüz tanıma / yüz doğrulama.** Kimlik QR ile belirlenir, kişi kontrolünü insan referans fotoğrafa bakarak yapar. Otomatik yüz tanıma biyometrik veri işlemedir (KVKK'da özel nitelikli kişisel veri; açık rıza ve ek önlem ister) ve ikinci bir model demek. Raporda "ileride yapılabilir" diye geçer.
 - Yaptırım / disiplin işlemleri (şirketin kendi prosedürü).
@@ -53,6 +55,15 @@ YOLO modeli 3 sınıf öğrenir. Hepsi toz maskesi için tanımlıdır.
 | `mask_improper` | Maske var ama burun ya da ağız açıkta (burun altında, çenede vb.) |
 | `no_mask` | Maske yok |
 
+**Kask modeli (karar, Kasım 2026):** Ayrı bir YOLO11n, 2 sınıf. Etiket kutusu başı kapsar.
+
+| Sınıf | Anlamı |
+|---|---|
+| `helmet` | Başta baret var |
+| `no_helmet` | Baş açık |
+
+Neden ayrı model: maske verilerinde kask etiketi yok. Tek modelde birleştirince etiketsiz başları model arka plan diye öğrenir. Öneri: ileride kask modeliyle maske verisi otomatik etiketlenip tek modele geçilebilir.
+
 **Onay kuralı (track bazında, bir deneme için):**
 
 1. ByteTrack her kişiye bir track ID verir. Karar motoru o track'in **son 15 gözlemini** tutar.
@@ -63,6 +74,7 @@ YOLO modeli 3 sınıf öğrenir. Hepsi toz maskesi için tanımlıdır.
 3. **Fail-closed:** emin olunamayan her durum başarısız denemedir. Kesin `REJECTED` olunca insan incelemesine gider.
 4. **Tek kişi kuralı:** kadrajda birden fazla kişi varsa başarısız (reason: `multiple_people`).
 5. Yüz bulunamazsa başarısız (reason: `no_face`).
+6. Öneri (uygulanmadı): bir gözlem ancak maske `mask_proper` **ve** kask `helmet` ise doğru sayılır; yukarıdaki pencere kuralı bu birleşik gözleme uygulanır. Kask yoksa reason: `no_helmet`, ekran "KASKINI TAK" der.
 
 **Kontrol akışı (istasyon):**
 
@@ -73,7 +85,7 @@ YOLO modeli 3 sınıf öğrenir. Hepsi toz maskesi için tanımlıdır.
 5. **En fazla 3 deneme** (ayarlanabilir). Hepsi başarısızsa → `REJECTED`, fotoğraf çekilir, kayıt panele `pending` olarak düşer.
 6. Aynı işçi **üst üste 3 kez `REJECTED`** alırsa `alerts` tablosuna uyarı yazılır.
 
-**Uygulama durumu (Kasım 2026):** Kural ve akış `src/decision/engine.py`'de yazıldı ve birim testleri var. İstasyon QR'ı `cv2.QRCodeDetectorAruco` ile okuyor ve işçiyi geçici olarak `data/workers.csv`'den buluyor; bu dosya git'e girmiyor, veritabanı gelince kalkacak. Ekran taslağa göre yapıldı: kamera, işçi kartı ve referans fotoğraf, durum mesajı, gözlem çubuğu ve deneme noktaları. Henüz yok: ByteTrack (`lap` paketi kurulu değil; tek kişi kuralı yüzünden şimdilik gerek görülmedi), fotoğraf çekme, kaydı saklama ve uyarı (6. madde), API ve panel.
+**Uygulama durumu (Kasım 2026):** Kural ve akış `src/decision/engine.py`'de yazıldı ve birim testleri var. İstasyon QR'ı `cv2.QRCodeDetectorAruco` ile okuyor ve işçiyi geçici olarak `data/workers.csv`'den buluyor; bu dosya git'e girmiyor, veritabanı gelince kalkacak. Ekran taslağa göre yapıldı: kamera, işçi kartı ve referans fotoğraf, durum mesajı, gözlem çubuğu ve deneme noktaları. Henüz yok: kask kontrolü, ByteTrack (`lap` paketi kurulu değil; tek kişi kuralı yüzünden şimdilik gerek görülmedi), fotoğraf çekme, kaydı saklama ve uyarı (6. madde), API ve panel.
 Uygularken verilen ve ekipçe onaylanması gereken seçimler:
 - Bir deneme **30 gözlemde** (10 FPS'te yaklaşık 3 sn) onaylanmazsa başarısız sayılıyor. Aşağıdaki "10 sn zaman aşımı" önerisinin yerine geçti; onaylanmazsa deneme hiç bitmiyordu.
 - Başarısız denemeden sonra mesaj **3 sn**, sonuç ekranı **4 sn** kalıyor.
@@ -97,7 +109,8 @@ Uygularken verilen ve ekipçe onaylanması gereken seçimler:
 ```
 Laptop webcam
   → Kişiye özel QR (OpenCV QRCodeDetector) ile işçi kimliği
-  → YOLO11n (3 sınıf)            # Ultralytics
+  → YOLO11n maske modeli (3 sınıf)   # Ultralytics
+  → YOLO11n kask modeli (2 sınıf)
   → ByteTrack                     # model.track(..., tracker="bytetrack.yaml")
   → Karar motoru (kural + deneme hakkı, bkz. §3)
   → Ekran mesajı ("GEÇEBİLİRSİN" / "MASKENİ DÜZELT")
@@ -105,11 +118,12 @@ Laptop webcam
   → Next.js panel (kontroller, inceleme kuyruğu, uyarılar, istatistik)
 ```
 
-- **Model:** YOLO11n, tek model, 3 sınıf. Pose + sınıflandırıcı yolu ileride opsiyonel.
+- **Model:** YOLO11n, iki model: maske (3 sınıf) ve kask (2 sınıf, §3). Pose + sınıflandırıcı yolu ileride opsiyonel.
 - **Eğitim:** İlk eğitim Yunus Emre'nin M4 laptopunda (MPS) yapıldı. Alternatifler: Emre'nin RTX 3050 Ti laptopu, Google Colab/Kaggle. Emre'nin masaüstü PC'si AMD GPU'lu, eğitimde kullanılamaz.
 - **Model dosyaları git'e girmez** (`models/`, `*.pt`). İstasyon varsayılan olarak `models/mask_n95_v3.pt` yükler; dosya ekip içinde git dışından paylaşılır. Model sürümleri **GitHub Releases**'te durur (`model-v1`, `model-v2`, `model-v3` …); indirmek için `gh release download model-v3 -D models`.
 
 **İlk eğitim sonucu (v1, Ekim 2026):** YOLO11n, 50 epoch. Val mAP50 0.93 ama val de public veriden ve yanıltıcı (§6.1). `mask_proper` recall 0.66. Webcam'de maskesiz yüzü zaman zaman maske sınıfı diye etiketliyor; `no_mask` verisi sadece 112 küçük Kaggle kırpması, yakın plan maskesiz yüz verisi gerekiyor.
+**Kask modeli v1 (Kasım 2026):** YOLO11n, SHWD, 30 epoch, M4 MPS'te 2,8 saat. SHWD test bölmesinde (1.517 görüntü) P 0.92, R 0.86, mAP50 0.92; `helmet` R 0.85, `no_helmet` R 0.87. Val de SHWD'den, kendi ortamımızı göstermez. Webcam'de tek kişi ve tek kaskla denendi: kask takınca `helmet`, çıkarınca `no_helmet` doğru çıktı. Dosya `models/helmet_v1.pt`. İstasyon henüz kullanmıyor.
 - **Panel:** Next.js (karar). Streamlit alternatif olarak konuşulmuştu ama Next.js'te kalındı.
 - **İstasyon uygulaması:** Python masaüstü uygulaması, **PySide6** (karar). Kamera + model + takip ayrı bir `QThread`'de; arayüz sadece gösterir. Karar motoru Qt'den bağımsız saf Python. Panel Next.js'te kalır (masaüstüne taşınmaz).
 - Öneri: Next.js'e süre yetmezse yedek plan olarak FastAPI'nin sunduğu basit bir HTML sayfası.
@@ -152,7 +166,7 @@ stations (id, name, location)
 checks   (id, worker_id, station_id, started_at, ended_at,
           attempts,        -- kullanılan deneme sayısı
           decision,        -- 'APPROVED' | 'REJECTED'
-          reason,          -- 'proper' | 'improper' | 'no_mask' | 'no_face' | 'multiple_people'
+          reason,          -- 'proper' | 'improper' | 'no_mask' | 'no_helmet' | 'no_face' | 'multiple_people'
           proper_ratio, snapshot_path,
           review_status,   -- NULL (APPROVED) | 'pending' | 'confirmed' | 'overturned'
           reviewed_by, reviewed_at, review_note)
@@ -187,6 +201,14 @@ Panelin ihtiyaç duyacağı ek uçlar (`GET /checks`, `GET /alerts`) öneri.
    - **Sadece `without_mask` yüzleri kullanılır**; cerrahi maskeli yüzler kullanılmaz.
    - **Dikkat:** Bir görüntüde hem maskeli hem maskesiz yüz varsa, maskeli yüzü silip görüntüyü tutma. Etiketsiz kalan yüzü model arka plan sanar. Ya sadece tüm yüzleri `without_mask` olan görüntüleri al, ya da yüzleri kırpıp kullan.
 
+3. **SHWD — Safety Helmet Wearing Dataset** (kask modeli için)
+   - Link: https://github.com/njvisionpower/Safety-Helmet-Wearing-Dataset (veri Google Drive ve Baidu'da).
+   - 7.581 görüntü; 9.044 baretli baş (`hat`), 111.514 baretsiz baş (`person`). PASCAL VOC. `hat` → `helmet`, `person` → `no_helmet`.
+   - Yelek etiketi yok. Baretli görüntüler Google/Baidu'dan; baretsiz başların bir kısmı SCUT-HEAD'den (sınıf ve kalabalık fotoğrafları).
+   - Repo lisansı MIT; görüntülerin lisansı için GitHub'da açık sorular var (#23, #60), kontrol edilmedi. Makalesi yok; repo'ya atıf yapılır.
+   - Dikkat: çoğu inşaat sahası ve kalabalık fotoğrafı, başlar küçük. 1–3 m yakın plana benzemez; asıl test kendi verimizle.
+   - Alternatifler (literatür tablosu 16, 13/18, 20): CHV, CHVG, Pictor-v3. Bunlarda yelek etiketi var, kullanılırsa yelek etiketleri atılır.
+
 Kullanılmayanlar ve nedenleri:
 
 - **FMR-DB / FMR-DBv2:** Respiratör türleri var ama herkese açık değil. Kurumsal e-posta ve imzalı lisans gerekiyor, veri sadece kurumdaki bilgisayarlarda tutulabiliyor; büyük ihtimalle takılma durumu etiketi de yok. İstenirse başvurulabilir, ama plan buna dayanmaz.
@@ -203,7 +225,7 @@ Kullanılmayanlar ve nedenleri:
 ### 6.2 Kendi verimiz (asıl test seti)
 
 - Ventilli ve ventilsiz birkaç FFP2/FFP3 maske alınacak.
-- 15–20 gönüllü, **yazılı onamla**, laptop kamerasıyla çekilecek. Üç durum çekilecek: doğru takılmış, yanlış takılmış (burun ya da çene açıkta), maske yok.
+- 15–20 gönüllü, **yazılı onamla**, laptop kamerasıyla çekilecek. Üç durum çekilecek: doğru takılmış, yanlış takılmış (burun ya da çene açıkta), maske yok. Her durum **kasklı ve kasksız** çekilir.
 - Mesafe 1–3 m, farklı ışık koşulları, farklı açılar.
 - Etiketleme Roboflow ya da CVAT ile.
 - **Bölme kişiye göredir:** aynı kişi hem train hem test'te olmaz. Veri artırma (augmentation) **bölmeden sonra** ve sadece train'e uygulanır.
@@ -230,7 +252,7 @@ Kullanılmayanlar ve nedenleri:
 
 ## 7. Değerlendirme (karar)
 
-- Her sınıf için precision ve recall.
+- Her sınıf için precision ve recall (maske ve kask modelleri ayrı).
 - **Yanlış kabul oranı (FAR):** maske uygun değilken `APPROVED`. **Yanlış red oranı (FRR):** maske doğruyken `REJECTED`.
 - **İnceleme yükü:** insanın incelemesi gereken kayıt oranı (FRR doğrudan sorumlunun iş yüküne dönüşür) ve incelemede `overturned` oranı.
 - Kontrol başına karar süresi, ortalama deneme sayısı ve laptoptaki FPS.
@@ -254,7 +276,7 @@ Ekip bölüşümü önerisi: veri ve model (2, 3, 5); takip ve karar motoru (4);
 ## 9. Rapor durumu
 
 - Dosya: `SafeSight_Project_Summary.docx`. İngilizce, yaklaşık 4 sayfa, **26 kaynak**, tablo yok.
-- **Güncellenmeli:** Rapor hâlâ kapı/turnike modelini anlatıyor; kontrol istasyonu + insan incelemesine (§1, §3) göre düzeltilmeli.
+- **Güncellenmeli:** Rapor hâlâ kapı/turnike modelini anlatıyor; kontrol istasyonu + insan incelemesine (§1, §3) göre düzeltilmeli. Kask artık kapsamda, yelek tespiti kapsam dışı (§2); Scope ve Dataset bölümleri buna göre düzeltilmeli.
 - Bölümler: 1 The Project, 2 Scope, 3 How the Prototype Works, 4 Technology Choices (4.1–4.6), 5 Dataset, 6 Evaluation, 7 Limitations, References.
 - Başlıkta sadece "Yunus Emre Köybaşı · Emre Batak | October 2026" yazıyor. Taha Öneş projede değil; danışman adı başlığa yazılmayacak.
 - Kontrol edilmiş ve doğru olan, tekrar tartışılmasın:
